@@ -627,19 +627,24 @@ function getSessionFromReq(req: express.Request): Session | null {
   return session;
 }
 
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const admin = readAdmin();
+  if (admin) {
+    const session = getSessionFromReq(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized: Admin authentication required' });
+    }
+  }
+  next();
+}
+
 // ---------------------------------------------------------------------------
 // REST API ROUTES
 // ---------------------------------------------------------------------------
 
 // 1. Image Upload Endpoint
-app.post('/api/upload', (req, res) => {
+app.post('/api/upload', requireAdmin, (req, res) => {
   try {
-    const admin = readAdmin();
-    const session = getSessionFromReq(req);
-    if (admin && !session) {
-      return res.status(401).json({ error: 'Unauthorized: Admin authentication required to upload images' });
-    }
-
     const { image, filename } = req.body;
     if (!image || typeof image !== 'string') {
       return res.status(400).json({ error: 'Missing image data' });
@@ -725,13 +730,7 @@ app.get('/api/homepage', (req, res) => {
   res.json(store.homepage);
 });
 
-app.put('/api/homepage', (req, res) => {
-  const admin = readAdmin();
-  const session = getSessionFromReq(req);
-  if (admin && !session) {
-    return res.status(401).json({ error: 'Unauthorized: Admin authentication required' });
-  }
-
+app.put('/api/homepage', requireAdmin, (req, res) => {
   const updatedHomepage = req.body;
   if (!updatedHomepage || typeof updatedHomepage !== 'object') {
     return res.status(400).json({ error: 'Invalid homepage content payload' });
@@ -754,7 +753,7 @@ app.get('/api/products', (req, res) => {
   res.json(store.products);
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', requireAdmin, (req, res) => {
   const productData = req.body;
   if (!productData || !productData.name) {
     return res.status(400).json({ error: 'Product name is required' });
@@ -813,7 +812,7 @@ app.post('/api/products', (req, res) => {
   res.json({ success: true, product: newProduct });
 });
 
-app.put('/api/products', (req, res) => {
+app.put('/api/products', requireAdmin, (req, res) => {
   const products = req.body;
   if (!Array.isArray(products)) {
     return res.status(400).json({ error: 'Expected an array of products' });
@@ -826,7 +825,7 @@ app.put('/api/products', (req, res) => {
   res.json({ success: true, products: store.products });
 });
 
-app.patch('/api/products/:id', (req, res) => {
+app.patch('/api/products/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   const store = readStore();
@@ -841,7 +840,7 @@ app.patch('/api/products/:id', (req, res) => {
   res.json({ success: true, product: store.products[index] });
 });
 
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const store = readStore();
   store.products = store.products.filter(p => p.id !== id);
@@ -856,7 +855,7 @@ app.get('/api/categories', (req, res) => {
   res.json(store.categories);
 });
 
-app.put('/api/categories', (req, res) => {
+app.put('/api/categories', requireAdmin, (req, res) => {
   const categories = req.body;
   if (!Array.isArray(categories)) {
     return res.status(400).json({ error: 'Expected an array of categories' });
@@ -869,7 +868,7 @@ app.put('/api/categories', (req, res) => {
   res.json({ success: true, categories: store.categories });
 });
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', requireAdmin, (req, res) => {
   const newCat = req.body;
   if (!newCat || !newCat.name) {
     return res.status(400).json({ error: 'Category name is required' });
@@ -894,7 +893,7 @@ app.post('/api/categories', (req, res) => {
   res.json({ success: true, category: categoryItem });
 });
 
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const store = readStore();
   store.categories = store.categories.filter(c => c.id !== id && c.slug !== id);
@@ -909,7 +908,7 @@ app.get('/api/worn-by-you', (req, res) => {
   res.json(store.wornByYou);
 });
 
-app.put('/api/worn-by-you', (req, res) => {
+app.put('/api/worn-by-you', requireAdmin, (req, res) => {
   const items = req.body;
   if (!Array.isArray(items)) {
     return res.status(400).json({ error: 'Expected array of Worn By You items' });
@@ -922,7 +921,7 @@ app.put('/api/worn-by-you', (req, res) => {
   res.json({ success: true, wornByYou: store.wornByYou });
 });
 
-app.post('/api/worn-by-you', (req, res) => {
+app.post('/api/worn-by-you', requireAdmin, (req, res) => {
   const item = req.body;
   if (!item || !item.mediaUrl) {
     return res.status(400).json({ error: 'Media URL is required' });
@@ -946,7 +945,7 @@ app.post('/api/worn-by-you', (req, res) => {
   res.json({ success: true, item: newItem });
 });
 
-app.delete('/api/worn-by-you/:id', (req, res) => {
+app.delete('/api/worn-by-you/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const store = readStore();
   store.wornByYou = store.wornByYou.filter(item => item.id !== id);
@@ -961,7 +960,7 @@ app.get('/api/contact-info', (req, res) => {
   res.json(store.contactInfo);
 });
 
-app.put('/api/contact-info', (req, res) => {
+app.put('/api/contact-info', requireAdmin, (req, res) => {
   const updates = req.body;
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Invalid contact info' });
@@ -980,7 +979,7 @@ app.get('/api/site-settings', (req, res) => {
   res.json(store.siteSettings);
 });
 
-app.put('/api/site-settings', (req, res) => {
+app.put('/api/site-settings', requireAdmin, (req, res) => {
   const updates = req.body;
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Invalid site settings' });
@@ -994,7 +993,7 @@ app.put('/api/site-settings', (req, res) => {
 });
 
 // 8. Orders
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', requireAdmin, (req, res) => {
   const store = readStore();
   res.json(store.orders);
 });
@@ -1012,7 +1011,7 @@ app.post('/api/orders', (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-app.patch('/api/orders/:id', (req, res) => {
+app.patch('/api/orders/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
@@ -1034,7 +1033,7 @@ app.get('/api/reviews', (req, res) => {
   res.json(store.reviews);
 });
 
-app.put('/api/reviews', (req, res) => {
+app.put('/api/reviews', requireAdmin, (req, res) => {
   const reviews = req.body;
   if (!Array.isArray(reviews)) {
     return res.status(400).json({ error: 'Expected array of reviews' });
@@ -1076,7 +1075,7 @@ app.post('/api/reviews', (req, res) => {
   res.json({ success: true, review: newReview });
 });
 
-app.put('/api/reviews/:id', (req, res) => {
+app.put('/api/reviews/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   const store = readStore();
@@ -1091,7 +1090,7 @@ app.put('/api/reviews/:id', (req, res) => {
   res.json({ success: true, review: store.reviews[index] });
 });
 
-app.delete('/api/reviews/:id', (req, res) => {
+app.delete('/api/reviews/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   const store = readStore();
   store.reviews = store.reviews.filter(r => r.id !== id);

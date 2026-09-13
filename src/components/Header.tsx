@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { storageService } from '../services/storageService';
 import { DEFAULT_CATEGORIES } from '../data/initialProducts';
-import { ShoppingBag, Search, Menu, X, Shield, ChevronDown, Sparkles } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   currentPage: string;
@@ -210,19 +210,6 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
               <Search className="w-4 h-4 stroke-[1.75]" />
             </button>
 
-            {/* Admin Portal Shortcut */}
-            <button
-              type="button"
-              onClick={() => handleLinkClick('admin')}
-              className={`p-1.5 text-stone-700 hover:text-black transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 text-[11px] tracking-[0.15em] uppercase ${
-                currentPage === 'admin' ? 'text-black font-medium' : ''
-              }`}
-              title="Store Admin & Product Management"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span className="text-[10px] hidden lg:inline">Admin</span>
-            </button>
-
             {/* Shopping Bag Trigger */}
             <button
               type="button"
@@ -325,14 +312,6 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                   className="block text-left w-full text-sm tracking-[0.2em] uppercase text-stone-700"
                 >
                   Shipping & Returns
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLinkClick('admin')}
-                  className="block text-left w-full text-sm tracking-[0.2em] uppercase text-stone-900 font-medium flex items-center gap-2 pt-2"
-                >
-                  <Shield className="w-4 h-4 text-stone-800" />
-                  Admin Dashboard
                 </button>
               </div>
             </div>

@@ -297,6 +297,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setIsAuthenticated(false);
     setAuthPassword('');
     setAuthView('login');
+    onNavigate('home');
   };
 
   // Save Homepage Content Changes
@@ -570,315 +571,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     }
   };
 
-  // Secure Authentication Screen
+  // Secure Authentication Check: Unauthenticated visitors are redirected to home
+  useEffect(() => {
+    if (!isAuthenticated) {
+      onNavigate('home');
+    }
+  }, [isAuthenticated, onNavigate]);
+
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-[85vh] flex items-center justify-center px-4 py-16 bg-[#FAF9F6]">
-        <div className="max-w-md w-full bg-white border border-stone-300 p-8 sm:p-10 shadow-xl">
-          
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-black text-white mx-auto flex items-center justify-center mb-4">
-              <ShieldCheck className="w-7 h-7 stroke-[1.5]" />
-            </div>
-
-            <span className="text-[10px] tracking-[0.3em] uppercase text-stone-400 block mb-1 font-medium">
-              SOFYRA Fine Jewellery
-            </span>
-
-            {!hasAdminAccount && (
-              <div className="mb-2">
-                <span className="inline-block px-3 py-1 bg-stone-900 text-white text-[10px] font-semibold uppercase tracking-widest">
-                  One-Time Setup
-                </span>
-              </div>
-            )}
-
-            <h2 className="font-editorial text-2xl sm:text-3xl uppercase tracking-wider text-black">
-              {!hasAdminAccount
-                ? 'Create Administrator Account'
-                : authView === 'recovery'
-                ? 'Security PIN Reset'
-                : 'Sign in as Administrator'}
-            </h2>
-
-            <p className="text-xs text-stone-500 font-light mt-2 max-w-xs mx-auto">
-              {!hasAdminAccount
-                ? 'Create your private administrator email and password. Once established, public registration is locked permanently.'
-                : authView === 'recovery'
-                ? 'Enter your registered email and secret recovery PIN to reset your master password.'
-                : 'Restricted administrative access. Authenticate with your private administrator credentials.'}
-            </p>
-          </div>
-
-          {/* Error & Success Feedback Alerts */}
-          {authError && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{authError}</span>
-            </div>
-          )}
-
-          {authSuccess && (
-            <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{authSuccess}</span>
-            </div>
-          )}
-
-          {/* VIEW 1: FIRST-TIME REGISTRATION (No hard-coded passwords) */}
-          {!hasAdminAccount && (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Private Admin Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={authEmail}
-                  onChange={e => setAuthEmail(e.target.value)}
-                  placeholder="e.g. your-private-email@gmail.com"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-                <span className="text-[10px] text-stone-400 mt-0.5 block">
-                  This private email will be designated as the sole SOFYRA Administrator.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Admin Password *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={authPassword}
-                    onChange={e => setAuthPassword(e.target.value)}
-                    placeholder="Create a strong password (min 6 chars)"
-                    className="w-full bg-[#FAF9F6] border border-stone-300 p-3 pr-10 text-sm text-black focus:border-black focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3.5 text-stone-400 hover:text-black cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Confirm Admin Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={authConfirmPassword}
-                  onChange={e => setAuthConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Emergency Security Recovery PIN (Optional)
-                </label>
-                <input
-                  type="password"
-                  maxLength={8}
-                  value={authSecurityPin}
-                  onChange={e => setAuthSecurityPin(e.target.value)}
-                  placeholder="4 to 8 digit recovery PIN (e.g. 7482)"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none font-mono"
-                />
-                <span className="text-[10px] text-stone-400 mt-0.5 block">
-                  Used if you ever forget your master password.
-                </span>
-              </div>
-
-              <div className="p-3 bg-stone-50 border border-stone-200 text-[11px] text-stone-600 space-y-1">
-                <p className="font-semibold text-stone-800 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-black" />
-                  Cryptographic Security Guarantee
-                </p>
-                <p className="text-[10px] leading-relaxed text-stone-500">
-                  Password is cryptographically salted & hashed with Web Crypto PBKDF2 (SHA-256, 100k rounds). Credentials are never hard-coded in source code or sent to external trackers.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-black text-white uppercase tracking-[0.2em] text-xs font-semibold hover:bg-stone-800 cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {isSubmitting ? 'Creating Administrator Account...' : 'Create Administrator Account'}
-              </button>
-            </form>
-          )}
-
-          {/* VIEW 2: STANDARD LOGIN */}
-          {hasAdminAccount && authView === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Admin Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={authEmail}
-                  onChange={e => setAuthEmail(e.target.value)}
-                  placeholder="Enter registered admin email"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] tracking-wider uppercase text-stone-700 font-medium">
-                    Admin Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthView('recovery');
-                      setAuthError('');
-                    }}
-                    className="text-[10px] text-stone-500 hover:text-black uppercase tracking-wider underline cursor-pointer"
-                  >
-                    Forgot PIN / Password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={authPassword}
-                    onChange={e => setAuthPassword(e.target.value)}
-                    placeholder="Enter password..."
-                    className="w-full bg-[#FAF9F6] border border-stone-300 p-3 pr-10 text-sm text-black focus:border-black focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3.5 text-stone-400 hover:text-black cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-black text-white uppercase tracking-[0.2em] text-xs font-semibold hover:bg-stone-800 cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {isSubmitting ? 'Verifying...' : 'Sign In as Administrator'}
-              </button>
-            </form>
-          )}
-
-          {/* VIEW 3: RECOVERY WITH PIN */}
-          {hasAdminAccount && authView === 'recovery' && (
-            <form onSubmit={handleRecovery} className="space-y-4">
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Registered Admin Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={authEmail}
-                  onChange={e => setAuthEmail(e.target.value)}
-                  placeholder="Admin email"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Security Recovery PIN *
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={authSecurityPin}
-                  onChange={e => setAuthSecurityPin(e.target.value)}
-                  placeholder="Enter your security PIN"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  New Admin Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={authPassword}
-                  onChange={e => setAuthPassword(e.target.value)}
-                  placeholder="New password (min 6 chars)"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
-                  Confirm New Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={authConfirmPassword}
-                  onChange={e => setAuthConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-black text-white uppercase tracking-[0.2em] text-xs font-semibold hover:bg-stone-800 cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {isSubmitting ? 'Resetting...' : 'Verify PIN & Update Password'}
-              </button>
-
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthView('login');
-                    setAuthError('');
-                  }}
-                  className="text-xs text-stone-500 hover:text-black uppercase tracking-wider"
-                >
-                  &larr; Back to Login
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="mt-8 pt-5 border-t border-stone-200 text-center">
-            <button
-              type="button"
-              onClick={() => onNavigate('home')}
-              className="text-xs text-stone-500 hover:text-black uppercase tracking-wider flex items-center justify-center gap-1.5 mx-auto"
-            >
-              <span>&larr; Return to Storefront</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -2090,9 +1791,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (window.confirm('Do you want to switch or reset administrator credentials? You will be logged out and taken to the authentication screen.')) {
-                      handleLogout();
+                      await adminAuthService.logout();
+                      setIsAuthenticated(false);
+                      onNavigate('auth');
                     }
                   }}
                   className="px-4 py-2 border border-stone-300 text-stone-700 hover:border-black text-xs tracking-wider uppercase font-medium cursor-pointer transition-colors"

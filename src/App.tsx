@@ -25,41 +25,101 @@ import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
 import { AdminPage } from './pages/AdminPage';
 import { AboutPage } from './pages/AboutPage';
 import { PoliciesPage } from './pages/PoliciesPage';
+import { AuthPage } from './pages/AuthPage';
+
+const VALID_PAGES = ['home', 'shop', 'category', 'product', 'checkout', 'order-confirmation', 'admin', 'auth', 'about', 'policies', 'contact'];
+
+const getInitialRoute = (): string => {
+  if (typeof window === 'undefined') return 'home';
+
+  // Support both pathname (e.g. /admin, /auth) and hash (e.g. #admin, #auth)
+  const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].split('?')[0].toLowerCase();
+  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
+  const target = path || hash;
+
+  if (target === 'admin') {
+    // Unauthenticated visitors to /admin MUST be redirected immediately to the storefront homepage
+    if (!adminAuthService.isAuthenticated()) {
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', '/');
+      }
+      return 'home';
+    }
+    return 'admin';
+  }
+
+  if (target === 'auth') {
+    // If owner is already logged in, take them straight to admin
+    if (adminAuthService.isAuthenticated()) {
+      return 'admin';
+    }
+    return 'auth';
+  }
+
+  if (target && VALID_PAGES.includes(target)) {
+    return target;
+  }
+
+  try {
+    const saved = sessionStorage.getItem('sofyra_current_page');
+    if (saved && VALID_PAGES.includes(saved)) {
+      if (saved === 'admin' && !adminAuthService.isAuthenticated()) {
+        return 'home';
+      }
+      return saved;
+    }
+  } catch {}
+
+  return 'home';
+};
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-      const validPages = ['home', 'shop', 'category', 'product', 'checkout', 'order-confirmation', 'admin', 'about', 'policies', 'contact'];
-      if (hash && validPages.includes(hash)) {
-        return hash;
-      }
-      try {
-        const saved = sessionStorage.getItem('sofyra_current_page');
-        if (saved && validPages.includes(saved)) {
-          return saved;
-        }
-      } catch {}
-    }
-    return 'home';
-  });
+  const [currentPage, setCurrentPage] = useState<string>(() => getInitialRoute());
   const [pageData, setPageData] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>(() => storageService.getProducts());
   const [reviews, setReviews] = useState(() => storageService.getReviews());
   const [homepageContent, setHomepageContent] = useState<HomepageContent>(() => storageService.getHomepageContent());
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
 
-  // Sync route on hash change and persist active page
+  // Sync route on URL pathname / hash change and protect admin route
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-      const validPages = ['home', 'shop', 'category', 'product', 'checkout', 'order-confirmation', 'admin', 'about', 'policies', 'contact'];
-      if (hash && validPages.includes(hash) && hash !== currentPage) {
-        setCurrentPage(hash);
+    const handleLocationChange = () => {
+      const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].split('?')[0].toLowerCase();
+      const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
+      const target = path || hash;
+
+      if (target === 'admin') {
+        if (!adminAuthService.isAuthenticated()) {
+          if (window.history?.replaceState) {
+            window.history.replaceState(null, '', '/');
+          }
+          if (currentPage !== 'home') setCurrentPage('home');
+          return;
+        }
+        if (currentPage !== 'admin') setCurrentPage('admin');
+        return;
+      }
+
+      if (target === 'auth') {
+        if (adminAuthService.isAuthenticated()) {
+          if (currentPage !== 'admin') setCurrentPage('admin');
+          return;
+        }
+        if (currentPage !== 'auth') setCurrentPage('auth');
+        return;
+      }
+
+      if (target && VALID_PAGES.includes(target) && target !== currentPage) {
+        setCurrentPage(target);
       }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
   }, [currentPage]);
 
   useEffect(() => {
@@ -80,7 +140,11 @@ export default function App() {
     storageService.fetchReviews().then(revs => {
       if (revs && revs.length > 0) setReviews(revs);
     });
-    adminAuthService.init();
+    adminAuthService.init().then(auth => {
+      if (!auth.authenticated && currentPage === 'admin') {
+        handleNavigate('home');
+      }
+    });
   }, []);
 
   // Sync products when modified in Admin
@@ -99,13 +163,41 @@ export default function App() {
     setHomepageContent(content);
   };
 
-  // Simple, smooth URL hash and navigation state
+  // Secure URL navigation handler
   const handleNavigate = (page: string, data?: any) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Guard: /admin is restricted to authenticated owners only. Unauthenticated visitors are redirected to home.
+    if (page === 'admin' && !adminAuthService.isAuthenticated()) {
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState(null, '', '/');
+      }
+      setCurrentPage('home');
+      setPageData(null);
+      return;
+    }
+
+    if (page === 'auth' && adminAuthService.isAuthenticated()) {
+      page = 'admin';
+    }
+
     setCurrentPage(page);
     setPageData(data || null);
+
     if (typeof window !== 'undefined') {
-      window.location.hash = page;
+      if (page === 'home') {
+        if (window.history?.replaceState) {
+          window.history.replaceState(null, '', '/');
+        }
+        window.location.hash = '';
+      } else if (page === 'admin' || page === 'auth') {
+        if (window.history?.pushState) {
+          window.history.pushState(null, '', `/${page}`);
+        }
+        window.location.hash = page;
+      } else {
+        window.location.hash = page;
+      }
       try {
         sessionStorage.setItem('sofyra_current_page', page);
       } catch {}
@@ -194,8 +286,13 @@ export default function App() {
             />
           )}
 
-          {/* 7. ADMIN PANEL */}
-          {currentPage === 'admin' && (
+          {/* 7. OWNER AUTHENTICATION (/auth) */}
+          {currentPage === 'auth' && (
+            <AuthPage onNavigate={handleNavigate} />
+          )}
+
+          {/* 8. ADMIN PANEL (/admin - strictly authenticated) */}
+          {currentPage === 'admin' && adminAuthService.isAuthenticated() && (
             <AdminPage
               products={products}
               onRefreshProducts={handleRefreshProducts}
@@ -205,12 +302,12 @@ export default function App() {
             />
           )}
 
-          {/* 8. ABOUT SOFYRA */}
+          {/* 9. ABOUT SOFYRA */}
           {currentPage === 'about' && (
             <AboutPage onNavigate={handleNavigate} />
           )}
 
-          {/* 9. POLICIES & CARE */}
+          {/* 10. POLICIES & CARE */}
           {currentPage === 'policies' && (
             <PoliciesPage
               initialTab={pageData?.tab || 'shipping'}
@@ -218,7 +315,7 @@ export default function App() {
             />
           )}
 
-          {/* 10. CONTACT PAGE VIEW */}
+          {/* 11. CONTACT PAGE VIEW */}
           {currentPage === 'contact' && (
             <div className="py-12 bg-white">
               <ContactSection contactPageImage={homepageContent.contactPage?.image} />
@@ -227,7 +324,7 @@ export default function App() {
         </main>
 
         {/* Persistent Dark Luxury Footer */}
-        {currentPage !== 'admin' && (
+        {currentPage !== 'admin' && currentPage !== 'auth' && (
           <Footer onNavigate={handleNavigate} />
         )}
 
