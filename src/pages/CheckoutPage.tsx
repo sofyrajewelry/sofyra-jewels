@@ -149,6 +149,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                 </span>
               </div>
             </div>
+
+            <div className="flex items-start gap-2.5">
+              <span className="text-black font-bold text-xs shrink-0 mt-0.5">✓</span>
+              <div>
+                <span className="font-semibold text-black uppercase tracking-wider text-xs block">
+                  30-DAY MONEY-BACK GUARANTEE
+                </span>
+                <span className="text-stone-600 text-xs mt-0.5 block leading-relaxed">
+                  Shop with confidence with our 30-day money-back guarantee.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -620,6 +632,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                       </span>
                       <span className="text-stone-600 text-xs mt-0.5 block leading-relaxed">
                         Every order is carefully and beautifully packed.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-black font-bold text-xs shrink-0 mt-0.5">✓</span>
+                    <div>
+                      <span className="font-semibold text-black uppercase tracking-wider text-xs block">
+                        30-DAY MONEY-BACK GUARANTEE
+                      </span>
+                      <span className="text-stone-600 text-xs mt-0.5 block leading-relaxed">
+                        Shop with confidence with our 30-day money-back guarantee.
                       </span>
                     </div>
                   </div>

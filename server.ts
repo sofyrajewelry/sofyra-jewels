@@ -14,7 +14,7 @@ import {
   DEFAULT_HOMEPAGE_CONTENT
 } from './src/data/initialProducts';
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 // Enable large JSON payloads for direct base64 image uploading
