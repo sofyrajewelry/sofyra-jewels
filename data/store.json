@@ -1,0 +1,714 @@
+{
+  "homepage": {
+    "hero": {
+      "titleLine1": "JEWELLERY",
+      "titleLine2": "THAT SPEAKS to YOU",
+      "ctaText": "SHOP NOW",
+      "image": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=2000&auto=format&fit=crop"
+    },
+    "categories": {
+      "rings": {
+        "name": "RINGS",
+        "image": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=900&auto=format&fit=crop"
+      },
+      "bracelets": {
+        "name": "BRACELETS",
+        "image": "https://images.unsplash.com/photo-1611591475879-11c58d047321?q=85&w=900&auto=format&fit=crop"
+      },
+      "necklaces": {
+        "name": "NECKLACES",
+        "image": "https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=85&w=900&auto=format&fit=crop"
+      },
+      "earrings": {
+        "name": "EARRINGS",
+        "image": "https://images.unsplash.com/photo-1630019852942-f89202989a59?q=85&w=900&auto=format&fit=crop"
+      }
+    },
+    "editorial": {
+      "splitLeftTitle": "Bestsellers",
+      "splitLeftSubtitle": "The Curated Edit",
+      "splitLeftImage": "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?q=85&w=1200&auto=format&fit=crop",
+      "splitRightTitle": "New Collection",
+      "splitRightSubtitle": "New Season Launch",
+      "splitRightImage": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=85&w=1200&auto=format&fit=crop",
+      "spotlightDetailImage": "https://images.unsplash.com/photo-1598560917505-59a3ad559071?q=85&w=900&auto=format&fit=crop",
+      "spotlightLifestyleImage": "https://images.unsplash.com/photo-1611591475879-11c58d047321?q=85&w=1400&auto=format&fit=crop",
+      "spotlightBadge": "NEW",
+      "spotlightTitle": "HYPE CHAIN BRACELET"
+    },
+    "advantagesSection": {
+      "tagline": "Sofyra ",
+      "heading": "Advantages",
+      "items": [
+        {
+          "id": "adv-1",
+          "title": "QUALITY MATERIALS",
+          "description": "MATERIAL & QUALITY\n\nMaterial\nPremium stainless steel selected for its durability, smooth finish, and everyday wearability. Finished with a refined 18K gold-plated surface for a warm, elegant gold tone",
+          "subtitle": "925 Silver • Thick 18k Plating • Tarnish Guard",
+          "icon": "Sparkles",
+          "image": "/uploads/sofyra-adv-1788802996106-1788802999907-03350007.png",
+          "enabled": true,
+          "order": 1
+        },
+        {
+          "id": "adv-2",
+          "title": "Quality Promise",
+          "description": "We select and inspect each piece before it is carefully packed and sent to you. Our focus is on pieces that look refined, feel well-made, and complement your everyday style.",
+          "subtitle": "Day-to-night styling • Modular layers",
+          "icon": "Sparkles",
+          "image": "",
+          "enabled": true,
+          "order": 2
+        },
+        {
+          "id": "adv-3",
+          "title": "MONEY BACK GUARANTEE",
+          "description": "Shop with complete confidence. If you’re not satisfied with your purchase, you’re covered by our 30-day money-back guarantee, subject to our return policy.",
+          "subtitle": "Hassle-Free Return & Exchange Window",
+          "icon": "RotateCcw",
+          "image": "",
+          "enabled": true,
+          "order": 3
+        },
+        {
+          "id": "adv-4",
+          "title": "SECURE PACKAGING",
+          "description": "Every SOFYRA piece is carefully packed in protective, premium packaging to help ensure your jewellery arrives safely, beautifully presented, and ready to wear.",
+          "subtitle": "Reinforced Gift Box • Scratch-Safe Velvet Pouch",
+          "icon": "Package",
+          "image": "/uploads/sofyra-adv-1788802956018-1788802957751-4f012b24.jpg",
+          "enabled": true,
+          "order": 4
+        }
+      ]
+    },
+    "advantages": {
+      "customDesignImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=700&auto=format&fit=crop",
+      "versatilityImage": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=700&auto=format&fit=crop",
+      "qualityMaterialsImage": "https://images.unsplash.com/photo-1611591475879-11c58d047321?q=80&w=700&auto=format&fit=crop",
+      "comfortWearingImage": "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=700&auto=format&fit=crop"
+    }
+  },
+  "products": [
+    {
+      "id": "prod-1",
+      "slug": "etoile-sculptural-teardrop-earrings",
+      "name": "Etoile Sculptural Drop Earrings",
+      "subtitle": "Sterling silver / 18k gold plating",
+      "category": "earrings",
+      "price": 3450,
+      "compareAtPrice": 4200,
+      "discountPercent": 18,
+      "description": "Sculptural elegance crafted for the modern muse. The Etoile Drop Earrings capture ambient light through sweeping, fluid curves with a radiant mirror polish. Designed to frame the face with effortless sophistication from morning meetings to intimate evening soirees.",
+      "details": [
+        "Hand-finished high-gloss mirror shine",
+        "Anti-tarnish protective micro-coating",
+        "Hypoallergenic post backing with secure butterfly clutch",
+        "Weight: 4.8g each (featherweight, zero ear fatigue)",
+        "Dimensions: 28mm length × 14mm widest point"
+      ],
+      "material": "925 Sterling Silver base",
+      "plating": "18K Yellow Gold or Rhodium Silver",
+      "dimensions": "28mm × 14mm",
+      "careInfo": "Gently wipe with our complimentary microfiber polishing cloth after wear. Avoid direct contact with concentrated perfumes and swimming pools.",
+      "sku": "SOF-EAR-001",
+      "stockCount": 14,
+      "inStock": true,
+      "isNew": true,
+      "isFeatured": true,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1630019852942-f89202989a59?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=900&auto=format&fit=crop"
+      ],
+      "variants": [
+        {
+          "id": "var-finish",
+          "name": "Finish",
+          "options": [
+            {
+              "name": "18K Yellow Gold Plated",
+              "inStock": true,
+              "image": "https://images.unsplash.com/photo-1630019852942-f89202989a59?q=80&w=900&auto=format&fit=crop"
+            },
+            {
+              "name": "Rhodium Silver",
+              "inStock": true,
+              "image": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=900&auto=format&fit=crop"
+            }
+          ]
+        }
+      ],
+      "rating": 4.9,
+      "reviewCount": 38,
+      "createdAt": "2025-01-15",
+      "subcategory": "earrings",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-2",
+      "slug": "linea-tennis-bracelet-2mm",
+      "name": "Linea Tennis Bracelet (2mm)",
+      "subtitle": "Triple-A cubic zirconia / 18k silver plating",
+      "category": "bracelets",
+      "price": 4800,
+      "compareAtPrice": 5800,
+      "discountPercent": 17,
+      "description": "The definitive quintessential jewellery investment piece. Featuring a continuous strand of bezel-prong set brilliant-cut round simulated diamonds, the Linea Tennis Bracelet sits flush against the wrist with fluid motion and breathtaking diamond-like scintillation.",
+      "details": [
+        "Triple-A grade round laboratory crystals (2.0mm)",
+        "Double safety figure-eight security clasp",
+        "Four-prong structural basket setting for maximum light entrance",
+        "Water and sweat resistant protective ionic vapor deposit",
+        "Standard 6.7 inch length with complimentary 0.8 inch extender chain"
+      ],
+      "material": "925 Sterling Silver",
+      "plating": "18K White Gold / Rhodium",
+      "stone": "AAA+ Round Cut Simulated Diamonds",
+      "dimensions": "17cm length + 2cm extender, 2mm stone width",
+      "careInfo": "Store flat in the provided custom velvet pouch to prevent entanglement.",
+      "sku": "SOF-BRC-002",
+      "stockCount": 7,
+      "inStock": true,
+      "isNew": false,
+      "isFeatured": true,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=900&auto=format&fit=crop"
+      ],
+      "variants": [
+        {
+          "id": "var-metal",
+          "name": "Metal & Tone",
+          "options": [
+            {
+              "name": "Platinum Silver Finish",
+              "inStock": true
+            },
+            {
+              "name": "18K Warm Gold Finish",
+              "inStock": true
+            }
+          ]
+        }
+      ],
+      "rating": 5,
+      "reviewCount": 52,
+      "createdAt": "2025-01-20",
+      "subcategory": "bracelets",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-3",
+      "slug": "aurea-jacket-earrings",
+      "name": "Aurea Jacket Earrings",
+      "subtitle": "Sterling silver / 18k silver plating",
+      "category": "earrings",
+      "price": 3600,
+      "compareAtPrice": 4400,
+      "discountPercent": 18,
+      "description": "An architectural modular design featuring an asymmetric cluster of marquise and baguette stones. The bottom jacket can be detached to convert into an everyday classic solitaire stud, giving you two versatile high-fashion styles in one.",
+      "details": [
+        "2-in-1 convertible jacket & stud system",
+        "Marquise and emerald-cut multi-facet stones",
+        "Solid silver posts suitable for sensitive skin"
+      ],
+      "material": "Sterling Silver 925",
+      "plating": "18k Champagne Gold Plated",
+      "stone": "Artisanal Cushion & Marquise Stones",
+      "sku": "SOF-EAR-003",
+      "stockCount": 11,
+      "inStock": true,
+      "isNew": true,
+      "isFeatured": true,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1635767798638-3e25273a8236?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1629224316810-9d8805b95e76?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1630019852942-f89202989a59?q=80&w=900&auto=format&fit=crop"
+      ],
+      "rating": 4.8,
+      "reviewCount": 29,
+      "createdAt": "2025-02-01",
+      "subcategory": "earrings",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-4",
+      "slug": "emera-baguette-pendant-necklace",
+      "name": "Emera Baguette Necklace",
+      "subtitle": "Sterling silver / 18k gold plating",
+      "category": "necklaces",
+      "price": 3950,
+      "compareAtPrice": 4700,
+      "discountPercent": 16,
+      "description": "Clean geometry meets everlasting radiance. A step-cut emerald simulated diamond is horizontally suspended on an ultra-delicate diamond-cut cable chain. Styled solo for a minimal Parisian neckline or stacked effortlessly with choker bands.",
+      "details": [
+        "Horizontal 8x6mm emerald step-cut stone",
+        "Diamond-cut Italian cable chain catching natural sun glints",
+        "Adjustable 40cm + 5cm extension drop"
+      ],
+      "material": "925 Silver",
+      "plating": "18K Yellow Gold",
+      "stone": "Emerald-Cut Simulated Solitaire",
+      "dimensions": "42cm + 5cm extension",
+      "sku": "SOF-NCK-004",
+      "stockCount": 16,
+      "inStock": true,
+      "isNew": false,
+      "isFeatured": true,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1611591475879-11c58d047321?q=80&w=900&auto=format&fit=crop"
+      ],
+      "variants": [
+        {
+          "id": "var-color",
+          "name": "Finish",
+          "options": [
+            {
+              "name": "18k Warm Gold",
+              "inStock": true
+            },
+            {
+              "name": "Sterling Silver",
+              "inStock": true
+            }
+          ]
+        }
+      ],
+      "rating": 4.9,
+      "reviewCount": 44,
+      "createdAt": "2025-02-05",
+      "subcategory": "necklaces",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-5",
+      "slug": "aura-baguette-diamond-ring",
+      "name": "Aura Baguette Eternity Ring",
+      "subtitle": "Signature cut / 18k solid gold finish",
+      "category": "rings",
+      "price": 3200,
+      "compareAtPrice": 3800,
+      "discountPercent": 15,
+      "description": "An understated band punctuated by alternating channel-set baguette stones. Delicately slim yet substantially durable, designed for everyday wear and seamless stacking.",
+      "details": [
+        "Alternating micro-pave and baguette stones",
+        "Smooth comfort-fit inner shank contour",
+        "Anti-discoloration e-coating"
+      ],
+      "material": "925 Sterling Silver",
+      "plating": "18K Gold Plated",
+      "sku": "SOF-RNG-005",
+      "stockCount": 12,
+      "inStock": true,
+      "isNew": true,
+      "isFeatured": true,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1543290954-47b2c0cb354a?q=80&w=900&auto=format&fit=crop"
+      ],
+      "variants": [
+        {
+          "id": "var-size",
+          "name": "Ring Size (US)",
+          "options": [
+            {
+              "name": "Size 6 (16.5mm)",
+              "inStock": true
+            },
+            {
+              "name": "Size 7 (17.3mm)",
+              "inStock": true
+            },
+            {
+              "name": "Size 8 (18.1mm)",
+              "inStock": true
+            }
+          ]
+        }
+      ],
+      "rating": 5,
+      "reviewCount": 31,
+      "createdAt": "2025-02-10",
+      "subcategory": "rings",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-6",
+      "slug": "solitaire-pave-signature-ring",
+      "name": "Solitaire Pavé Signature Ring",
+      "subtitle": "Cushion radiant cut / 18k gold vermeil",
+      "category": "rings",
+      "price": 4200,
+      "compareAtPrice": 5100,
+      "discountPercent": 17,
+      "description": "Showcasing a 2.5 carat cushion-cut centerpiece flanked by hand-embedded micropavé accents along the shank. A breathtaking statement ring with timeless Pakistani bridal and western formal appeal.",
+      "details": [
+        "Four double-claw prongs for gemstone stability",
+        "Radiant cut crystal with fire and clarity index matching natural D-flawless",
+        "Includes luxury SOFYRA ring box and velvet traveling pouch"
+      ],
+      "material": "Sterling Silver 925",
+      "plating": "18K Gold Vermeil",
+      "stone": "2.5ct Cushion Brilliant Cut",
+      "sku": "SOF-RNG-006",
+      "stockCount": 7,
+      "inStock": true,
+      "isNew": true,
+      "isFeatured": true,
+      "isBestseller": false,
+      "images": [
+        "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=900&auto=format&fit=crop"
+      ],
+      "variants": [
+        {
+          "id": "var-size",
+          "name": "Ring Size",
+          "options": [
+            {
+              "name": "Size 6",
+              "inStock": true
+            },
+            {
+              "name": "Size 7",
+              "inStock": true
+            },
+            {
+              "name": "Size 8",
+              "inStock": true
+            }
+          ]
+        }
+      ],
+      "rating": 4.9,
+      "reviewCount": 19,
+      "createdAt": "2025-02-12",
+      "subcategory": "rings",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-7",
+      "slug": "riviera-tennis-collar-necklace",
+      "name": "Riviera Diamond Collar Necklace",
+      "subtitle": "Seamless articulated links / 18k white gold finish",
+      "category": "necklaces",
+      "price": 6400,
+      "compareAtPrice": 7500,
+      "discountPercent": 15,
+      "description": "An editorial masterpiece that rests naturally along the collarbone. Each link is independently articulated to prevent flipping, ensuring the stones capture 360-degree brilliance from any angle.",
+      "details": [
+        "Graduated centerpiece design",
+        "Concealed tongue-in-groove clasp with dual safety latch",
+        "Non-flipping engineered setting"
+      ],
+      "material": "925 Silver with Palladium Barrier",
+      "plating": "Rhodium White Gold",
+      "stone": "Graduated Lab Diamonds",
+      "sku": "SOF-NCK-007",
+      "stockCount": 6,
+      "inStock": true,
+      "isNew": false,
+      "isFeatured": true,
+      "isBestseller": false,
+      "images": [
+        "https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=900&auto=format&fit=crop"
+      ],
+      "rating": 5,
+      "reviewCount": 22,
+      "createdAt": "2025-02-14",
+      "subcategory": "necklaces",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    },
+    {
+      "id": "prod-8",
+      "slug": "etoile-pearl-cuff-bracelet",
+      "name": "Etoile Pearl Cuff Bangle",
+      "subtitle": "Cultured baroque pearls / 18k gold tone",
+      "category": "bracelets",
+      "price": 3900,
+      "compareAtPrice": 4600,
+      "discountPercent": 15,
+      "description": "An open sculptural cuff terminating in two lustrous natural freshwater pearls. Flexible spring tension allows effortless single-hand slip on, molding gently to your wrist.",
+      "details": [
+        "Genuine hand-selected cultured freshwater pearls",
+        "Malleable interior titanium core for customized fit",
+        "High polish mirrored surface"
+      ],
+      "material": "Brass with Heavy 18K Gold Dipping",
+      "plating": "18K Yellow Gold",
+      "stone": "Natural Cultured Pearls",
+      "sku": "SOF-BRC-008",
+      "stockCount": 15,
+      "inStock": true,
+      "isNew": true,
+      "isFeatured": false,
+      "isBestseller": true,
+      "images": [
+        "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1611591475879-11c58d047321?q=80&w=900&auto=format&fit=crop"
+      ],
+      "rating": 4.8,
+      "reviewCount": 27,
+      "createdAt": "2025-02-18",
+      "subcategory": "bracelets",
+      "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-jewellery",
+      "name": "Jewellery",
+      "slug": "jewellery",
+      "description": "Fine artisanal jewellery curated for everyday elegance and modern luxury.",
+      "image": "https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=85&w=900&auto=format&fit=crop",
+      "subcategories": [
+        {
+          "id": "sub-rings",
+          "name": "Rings",
+          "slug": "rings",
+          "description": "Stackable bands, statement pieces, and eternity rings."
+        },
+        {
+          "id": "sub-necklaces",
+          "name": "Necklaces",
+          "slug": "necklaces",
+          "description": "Sculpted collars, diamond pendants, and everyday chains."
+        },
+        {
+          "id": "sub-bracelets",
+          "name": "Bracelets",
+          "slug": "bracelets",
+          "description": "Classic tennis bracelets, delicate wristlets, and link chains."
+        },
+        {
+          "id": "sub-earrings",
+          "name": "Earrings",
+          "slug": "earrings",
+          "description": "Sculptural teardrops, huggies, and sparkling chandeliers."
+        },
+        {
+          "id": "sub-bangles",
+          "name": "Bangles",
+          "slug": "bangles",
+          "description": "Hinged bangles and open sculptural cuff bangles."
+        },
+        {
+          "id": "sub-chains",
+          "name": "Chains",
+          "slug": "chains",
+          "description": "Bold statement link chains and layered snake chains."
+        }
+      ]
+    }
+  ],
+  "wornByYou": [
+    {
+      "id": "wby-1",
+      "type": "image",
+      "mediaUrl": "/uploads/sofyra-IMG_2895jpeg-1788803186058-675f5dbb.jpg",
+      "caption": "Styled effortlessly with the Etoile Drop Earrings",
+      "productId": "prod-1",
+      "productName": "Etoile Sculptural Drop Earrings",
+      "order": 1
+    },
+    {
+      "id": "wby-2",
+      "type": "image",
+      "mediaUrl": "/uploads/sofyra-IMG_2141jpeg-1788803378479-23755b4a.jpg",
+      "caption": "Layered wrists with the Linea Tennis Bracelet",
+      "productId": "prod-2",
+      "productName": "Linea Tennis Bracelet (2mm)",
+      "order": 2
+    },
+    {
+      "id": "wby-3",
+      "type": "image",
+      "mediaUrl": "/uploads/sofyra-IMG_2457jpeg-1788803309900-b3862350.jpg",
+      "caption": "Everyday ring stacks in 18k gold tone",
+      "productId": "prod-3",
+      "productName": "Serpent Open Ring Band",
+      "order": 3
+    },
+    {
+      "id": "wby-4",
+      "type": "image",
+      "mediaUrl": "/uploads/sofyra-IMG_2823jpeg-1788803328716-5f98f1d2.jpg",
+      "caption": "Minimalist statement for golden hour",
+      "productId": "prod-4",
+      "productName": "Aura Freshwater Pearl Pendant",
+      "order": 4
+    }
+  ],
+  "contactInfo": {
+    "email": "sofyrastore@gmail.com",
+    "whatsapp": "+92 300 1234567",
+    "instagram": "@sofyra.pk",
+    "tiktok": "@sofyra.pk",
+    "facebook": "sofyrajewellery",
+    "pinterest": "sofyra",
+    "businessHours": "Monday – Saturday: 10:00 AM – 7:00 PM PKT",
+    "customerSupportMessage": "Our customer care team is available to assist with order tracking, sizing guidance, and product enquiries.",
+    "phone": "+92 300 1234567",
+    "address": "Lahore, Pakistan",
+    "contactImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1200&auto=format&fit=crop"
+  },
+  "siteSettings": {
+    "whySofyra": {
+      "tagline": "The Sofyra Standard",
+      "heading": "WHY SOFYRA",
+      "benefits": [
+        {
+          "id": "benefit-1",
+          "title": "Premium Materials",
+          "description": "Thoughtfully selected metals, 925 sterling silver, and heavy 18K gold finishing designed for longevity and comfort.",
+          "icon": "Sparkles"
+        },
+        {
+          "id": "benefit-2",
+          "title": "Quality Inspected",
+          "description": "Every piece is individually hand-checked for luster, smooth finish, and clasp integrity prior to dispatch.",
+          "icon": "ShieldCheck"
+        },
+        {
+          "id": "benefit-3",
+          "title": "Secure Packaging",
+          "description": "Encased in a custom velvet-lined protective jewelry box to ensure pristine arrival and scratch-safe storage.",
+          "icon": "Package"
+        },
+        {
+          "id": "benefit-4",
+          "title": "30-Day Money-Back Guarantee",
+          "description": "Shop with confidence. If you're not satisfied with your purchase, you're covered by our 30-day money-back guarantee, subject to SOFYRA's return policy.",
+          "icon": "RotateCcw"
+        }
+      ]
+    },
+    "productBenefitsRow": [
+      "Premium Quality",
+      "Secure Packaging",
+      "Fast Delivery",
+      "30-Day Money-Back Guarantee"
+    ],
+    "moneyBackGuarantee": {
+      "title": "30-DAY MONEY-BACK GUARANTEE",
+      "description": "Shop with confidence. If you're not satisfied with your purchase, you're covered by our 30-day money-back guarantee, subject to SOFYRA's return policy."
+    },
+    "accordions": {
+      "shipping": "Nationwide delivery across Pakistan.\nEstimated delivery time: 4–5 business days.\nCash on Delivery is available where applicable.",
+      "payment": "Checkout securely using Cash on Delivery (COD) and Direct Bank Transfer (HBL).",
+      "about": "Each piece is selected with attention to finish, comfort and everyday wearability. We balance sculptural modern forms with hypoallergenic finishes so you can wear your jewellery effortlessly every day.",
+      "care": "To preserve your jewellery's brilliance, avoid direct contact with perfumes, hairsprays, lotions, and chlorinated pools. Store in the complimentary SOFYRA protective pouch and gently buff with a dry microfibre cloth after wearing."
+    },
+    "bankTransferDetails": {
+      "bankName": "HBL BANK TRANSFER",
+      "accountTitle": "",
+      "iban": "PK12HABB0053727000158003",
+      "instructions": "Please transfer the order amount directly to our verified HBL account using the IBAN above. Share your payment screenshot on WhatsApp with your Order ID for instant dispatch confirmation."
+    }
+  },
+  "orders": [
+    {
+      "customerName": "ariba",
+      "phone": "32987548497",
+      "email": "sofyrastore@gmail.com",
+      "address": "yakki gate ",
+      "city": "Lahore",
+      "province": "Punjab",
+      "orderNotes": "",
+      "items": [
+        {
+          "id": "prod-2__Metal & Tone:Platinum Silver Finish",
+          "product": {
+            "id": "prod-2",
+            "slug": "linea-tennis-bracelet-2mm",
+            "name": "Linea Tennis Bracelet (2mm)",
+            "subtitle": "Triple-A cubic zirconia / 18k silver plating",
+            "category": "bracelets",
+            "price": 4800,
+            "compareAtPrice": 5800,
+            "discountPercent": 17,
+            "description": "The definitive quintessential jewellery investment piece. Featuring a continuous strand of bezel-prong set brilliant-cut round simulated diamonds, the Linea Tennis Bracelet sits flush against the wrist with fluid motion and breathtaking diamond-like scintillation.",
+            "details": [
+              "Triple-A grade round laboratory crystals (2.0mm)",
+              "Double safety figure-eight security clasp",
+              "Four-prong structural basket setting for maximum light entrance",
+              "Water and sweat resistant protective ionic vapor deposit",
+              "Standard 6.7 inch length with complimentary 0.8 inch extender chain"
+            ],
+            "material": "925 Sterling Silver",
+            "plating": "18K White Gold / Rhodium",
+            "stone": "AAA+ Round Cut Simulated Diamonds",
+            "dimensions": "17cm length + 2cm extender, 2mm stone width",
+            "careInfo": "Store flat in the provided custom velvet pouch to prevent entanglement.",
+            "sku": "SOF-BRC-002",
+            "stockCount": 8,
+            "inStock": true,
+            "isNew": false,
+            "isFeatured": true,
+            "isBestseller": true,
+            "images": [
+              "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=900&auto=format&fit=crop",
+              "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=900&auto=format&fit=crop"
+            ],
+            "variants": [
+              {
+                "id": "var-metal",
+                "name": "Metal & Tone",
+                "options": [
+                  {
+                    "name": "Platinum Silver Finish",
+                    "inStock": true
+                  },
+                  {
+                    "name": "18K Warm Gold Finish",
+                    "inStock": true
+                  }
+                ]
+              }
+            ],
+            "rating": 5,
+            "reviewCount": 52,
+            "createdAt": "2025-01-20",
+            "subcategory": "bracelets",
+            "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
+            "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+          },
+          "selectedVariantOptions": {
+            "Metal & Tone": "Platinum Silver Finish"
+          },
+          "quantity": 1,
+          "unitPrice": 4800
+        }
+      ],
+      "subtotal": 4800,
+      "shippingFee": 0,
+      "discountAmount": 480,
+      "total": 4320,
+      "paymentMethod": "bank_transfer",
+      "id": "ord-1789231477469",
+      "orderNumber": "SOF-1576",
+      "status": "Processing",
+      "createdAt": "2026-09-12T16:44:37.469Z"
+    }
+  ],
+  "reviews": []
+}

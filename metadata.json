@@ -1,0 +1,6 @@
+{
+  "name": "SOFYRA - Premium Jewellery",
+  "description": "Luxury, editorial, and minimal Pakistani jewellery ecommerce experience with complete product catalog, shopping cart, and administrative management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
