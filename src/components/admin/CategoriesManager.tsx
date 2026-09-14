@@ -1,50 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { CategoryHierarchyItem, SubcategoryHierarchyItem } from '../../types';
+import { CategoryHierarchyItem } from '../../types';
 import { storageService } from '../../services/storageService';
 import { ImageUploadField } from './ImageUploadField';
-import { Plus, Trash2, Edit2, Check, X, ArrowUpDown, ChevronRight, Layers, Tag } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, ArrowUp, ArrowDown, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 
 interface CategoriesManagerProps {
   categories: CategoryHierarchyItem[];
   onCategoriesUpdated: (categories: CategoryHierarchyItem[]) => void;
 }
 
-const getSubcategoryName = (sub: unknown): string => {
-  if (!sub) return '';
-  if (typeof sub === 'string') return sub;
-  if (typeof sub === 'object' && sub !== null) {
-    const obj = sub as { name?: string; slug?: string; id?: string; title?: string };
-    return obj.name || obj.title || obj.slug || obj.id || '';
-  }
-  return String(sub);
-};
+interface CategoryFormData {
+  id?: string;
+  name: string;
+  slug: string;
+  eyebrowText: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  description: string;
+  heroImage: string;
+  displayOrder: number;
+  enabled: boolean;
+}
 
-const getSubcategoryId = (sub: unknown, index: number): string => {
-  if (!sub) return `sub-${index}`;
-  if (typeof sub === 'string') return `${sub}-${index}`;
-  if (typeof sub === 'object' && sub !== null) {
-    const obj = sub as { id?: string; slug?: string; name?: string };
-    return obj.id || obj.slug || (obj.name ? `${obj.name}-${index}` : `sub-${index}`);
-  }
-  return `sub-${index}`;
-};
+const emptyCategoryForm = (): CategoryFormData => ({
+  name: '',
+  slug: '',
+  eyebrowText: 'SOFYRA FINE COLLECTION',
+  heroTitle: '',
+  heroSubtitle: '',
+  description: '',
+  heroImage: '',
+  displayOrder: 1,
+  enabled: true
+});
 
 export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
   categories,
   onCategoriesUpdated
 }) => {
-  const [items, setItems] = useState<CategoryHierarchyItem[]>(categories);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [items, setItems] = useState<CategoryHierarchyItem[]>(categories || []);
+  const [editingCategory, setEditingCategory] = useState<CategoryFormData | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatImage, setNewCatImage] = useState('');
-  const [newCatTagline, setNewCatTagline] = useState('');
-  const [newSubcategoryInputs, setNewSubcategoryInputs] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (categories && categories.length > 0) {
-      setItems(categories);
+      // Sort by displayOrder or order
+      const sorted = [...categories].sort((a, b) => {
+        const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : (a.order || 999);
+        const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : (b.order || 999);
+        return orderA - orderB;
+      });
+      setItems(sorted);
     }
   }, [categories]);
 
@@ -53,421 +61,529 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
     setTimeout(() => setSuccessMessage(null), 3500);
   };
 
-  const handleSaveAll = async (updatedItems: CategoryHierarchyItem[]) => {
-    setItems(updatedItems);
-    try {
-      await storageService.saveCategories(updatedItems);
-      onCategoriesUpdated(updatedItems);
-      showSuccess('Categories updated & synchronized across storefront!');
-    } catch (e) {
-      console.error('Failed to save categories:', e);
-    }
+  const handleOpenAdd = () => {
+    const nextOrder = items.length > 0 
+      ? Math.max(...items.map(c => typeof c.displayOrder === 'number' ? c.displayOrder : (c.order || 0))) + 1 
+      : 1;
+    setEditingCategory({
+      ...emptyCategoryForm(),
+      displayOrder: nextOrder
+    });
+    setIsAddingCategory(true);
   };
 
-  const handleAddCategory = () => {
-    if (!newCatName.trim()) return;
-    const slug = newCatName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-    const newCat: CategoryHierarchyItem = {
-      id: 'cat-' + Date.now(),
-      name: newCatName.trim(),
-      slug: slug,
-      tagline: newCatTagline.trim() || undefined,
-      image: newCatImage.trim() || 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=900&auto=format&fit=crop',
-      subcategories: [],
-      order: items.length + 1
-    };
-
-    const next = [...items, newCat];
-    handleSaveAll(next);
-    setNewCatName('');
-    setNewCatImage('');
-    setNewCatTagline('');
+  const handleOpenEdit = (cat: CategoryHierarchyItem) => {
+    setEditingCategory({
+      id: cat.id,
+      name: cat.name || '',
+      slug: cat.slug || '',
+      eyebrowText: cat.eyebrowText || 'SOFYRA FINE COLLECTION',
+      heroTitle: cat.heroTitle || cat.name.toUpperCase(),
+      heroSubtitle: cat.heroSubtitle || cat.tagline || '',
+      description: cat.description || '',
+      heroImage: cat.heroImage || cat.image || '',
+      displayOrder: typeof cat.displayOrder === 'number' ? cat.displayOrder : (cat.order || 1),
+      enabled: cat.enabled !== false && !cat.hidden
+    });
     setIsAddingCategory(false);
   };
 
-  const handleDeleteCategory = (catId: string, catName: string) => {
-    if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
-      const next = items.filter((c) => c.id !== catId);
-      handleSaveAll(next);
+  const handleCloseModal = () => {
+    setEditingCategory(null);
+    setIsAddingCategory(false);
+  };
+
+  const handleFormNameChange = (name: string) => {
+    if (!editingCategory) return;
+    const updates: Partial<CategoryFormData> = { name };
+    // Auto-generate slug and heroTitle if adding or if slug matches name
+    if (isAddingCategory || !editingCategory.slug) {
+      updates.slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+    if (isAddingCategory || !editingCategory.heroTitle) {
+      updates.heroTitle = name.toUpperCase();
+    }
+    setEditingCategory({ ...editingCategory, ...updates });
+  };
+
+  const handleSaveForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editingCategory.name.trim()) return;
+
+    setIsSaving(true);
+    const slug = (editingCategory.slug || editingCategory.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
+    const id = editingCategory.id || `cat-${slug || Date.now()}`;
+
+    const categoryItem: CategoryHierarchyItem = {
+      id,
+      name: editingCategory.name.trim(),
+      slug,
+      eyebrowText: editingCategory.eyebrowText.trim() || 'SOFYRA FINE COLLECTION',
+      heroTitle: editingCategory.heroTitle.trim() || editingCategory.name.trim().toUpperCase(),
+      heroSubtitle: editingCategory.heroSubtitle.trim() || undefined,
+      tagline: editingCategory.heroSubtitle.trim() || undefined,
+      description: editingCategory.description.trim() || undefined,
+      heroImage: editingCategory.heroImage.trim() || '',
+      image: editingCategory.heroImage.trim() || '',
+      displayOrder: Number(editingCategory.displayOrder) || 1,
+      order: Number(editingCategory.displayOrder) || 1,
+      enabled: editingCategory.enabled,
+      hidden: !editingCategory.enabled
+    };
+
+    try {
+      const updated = await storageService.saveCategory(categoryItem);
+      const allUpdated = storageService.getCategories();
+      setItems(allUpdated);
+      onCategoriesUpdated(allUpdated);
+      showSuccess(isAddingCategory ? `Category "${categoryItem.name}" created and synced to Firestore!` : `Category "${categoryItem.name}" updated in Firestore!`);
+      handleCloseModal();
+    } catch (err) {
+      console.error('Failed to save category:', err);
+      alert('Could not save category. Please check your connection and try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleUpdateCategory = (catId: string, updates: Partial<CategoryHierarchyItem>) => {
-    const next = items.map((c) => (c.id === catId ? { ...c, ...updates } : c));
-    handleSaveAll(next);
+  const handleToggleEnabled = async (cat: CategoryHierarchyItem) => {
+    const nextEnabled = !(cat.enabled !== false && !cat.hidden);
+    const updatedCat: CategoryHierarchyItem = {
+      ...cat,
+      enabled: nextEnabled,
+      hidden: !nextEnabled
+    };
+    try {
+      await storageService.saveCategory(updatedCat);
+      const all = storageService.getCategories();
+      setItems(all);
+      onCategoriesUpdated(all);
+      showSuccess(`Category "${cat.name}" is now ${nextEnabled ? 'enabled' : 'hidden'}.`);
+    } catch (err) {
+      console.error('Failed to toggle category enabled status:', err);
+    }
   };
 
-  const handleAddSubcategory = (catId: string) => {
-    const subName = newSubcategoryInputs[catId]?.trim();
-    if (!subName) return;
-
-    const next = items.map((c) => {
-      if (c.id === catId) {
-        const existing = c.subcategories || [];
-        const alreadyExists = existing.some(
-          (s) => getSubcategoryName(s).toLowerCase() === subName.toLowerCase()
-        );
-        if (alreadyExists) return c;
-        const newSubObj: SubcategoryHierarchyItem = {
-          id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          name: subName,
-          slug: subName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        };
-        return {
-          ...c,
-          subcategories: [...existing, newSubObj]
-        };
+  const handleDelete = async (cat: CategoryHierarchyItem) => {
+    if (window.confirm(`Are you sure you want to permanently delete category "${cat.name}"? Products in this category will not be deleted.`)) {
+      try {
+        await storageService.deleteCategory(cat.id);
+        const all = storageService.getCategories();
+        setItems(all);
+        onCategoriesUpdated(all);
+        showSuccess(`Category "${cat.name}" removed from Firestore.`);
+      } catch (err) {
+        console.error('Failed to delete category:', err);
       }
-      return c;
-    });
-
-    handleSaveAll(next);
-    setNewSubcategoryInputs((prev) => ({ ...prev, [catId]: '' }));
+    }
   };
 
-  const handleDeleteSubcategory = (catId: string, subToRemove: unknown) => {
-    const targetName = getSubcategoryName(subToRemove).toLowerCase();
-    const targetId =
-      typeof subToRemove === 'object' && subToRemove !== null && 'id' in subToRemove
-        ? (subToRemove as { id: string }).id
-        : null;
+  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return;
 
-    const next = items.map((c) => {
-      if (c.id === catId) {
-        return {
-          ...c,
-          subcategories: (c.subcategories || []).filter((s) => {
-            if (targetId && typeof s === 'object' && s !== null && 'id' in s) {
-              return (s as { id: string }).id !== targetId;
-            }
-            return getSubcategoryName(s).toLowerCase() !== targetName;
-          })
-        };
-      }
-      return c;
-    });
-    handleSaveAll(next);
-  };
+    const copy = [...items];
+    const [moved] = copy.splice(index, 1);
+    copy.splice(targetIndex, 0, moved);
 
-  const handleMoveOrder = (index: number, direction: 'up' | 'down') => {
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= items.length) return;
+    // Reassign sequential display orders
+    const reordered = copy.map((cat, i) => ({
+      ...cat,
+      displayOrder: i + 1,
+      order: i + 1
+    }));
 
-    const next = [...items];
-    const temp = next[index];
-    next[index] = next[targetIdx];
-    next[targetIdx] = temp;
-
-    // re-assign orders
-    const ordered = next.map((cat, i) => ({ ...cat, order: i + 1 }));
-    handleSaveAll(ordered);
+    setItems(reordered);
+    try {
+      await storageService.saveCategories(reordered);
+      onCategoriesUpdated(reordered);
+      showSuccess('Category display order updated and synced to Firestore.');
+    } catch (err) {
+      console.error('Failed to update category order:', err);
+    }
   };
 
   return (
-    <div className="space-y-8">
-      
-      {/* Toast Notification */}
+    <div className="space-y-6">
+      {/* Notifications */}
       {successMessage && (
-        <div className="p-4 bg-emerald-900 text-white flex items-center justify-between text-xs tracking-wider uppercase font-medium">
+        <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs tracking-wider uppercase font-medium flex items-center gap-2">
+          <Check className="w-4 h-4 text-emerald-700 shrink-0" />
           <span>{successMessage}</span>
-          <button
-            type="button"
-            onClick={() => setSuccessMessage(null)}
-            className="text-stone-300 hover:text-white"
-          >
-            ✕
-          </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
+      {/* Top Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 border border-stone-200">
         <div>
-          <span className="text-[10px] tracking-[0.3em] uppercase text-stone-400 font-light block mb-1">
-            Taxonomy & Navigation
-          </span>
-          <h2 className="font-editorial text-2xl uppercase tracking-wider text-black">
-            Categories & Subcategories
-          </h2>
-          <p className="text-xs text-stone-500 mt-1 font-light">
-            All categories and subcategories defined here automatically populate the navigation menu, shop filters, and product forms.
+          <h3 className="font-editorial text-xl uppercase tracking-wider text-black">
+            Category Management
+          </h3>
+          <p className="text-xs text-stone-500 font-light mt-0.5">
+            Every product belongs to exactly one category. All categories and hero banners sync with Firestore.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setIsAddingCategory(true)}
-          className="px-5 py-2.5 bg-black text-white hover:bg-stone-800 text-xs tracking-[0.2em] uppercase font-medium flex items-center gap-2 cursor-pointer transition-colors shrink-0"
+          onClick={handleOpenAdd}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-black text-white hover:bg-stone-800 text-xs tracking-[0.2em] uppercase font-semibold transition-colors cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Add New Category</span>
+          <span>Add Category</span>
         </button>
       </div>
 
-      {/* Add New Category Panel */}
-      {isAddingCategory && (
-        <div className="p-6 bg-white border border-stone-300 shadow-sm space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-            <h3 className="font-editorial text-lg uppercase tracking-wider text-black">
-              New Category Information
-            </h3>
-            <button
-              type="button"
-              onClick={() => setIsAddingCategory(false)}
-              className="text-stone-400 hover:text-black cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+      {/* Categories List Table */}
+      <div className="bg-white border border-stone-200 overflow-hidden shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-stone-200 bg-stone-50 text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium">
+                <th className="py-3.5 px-4 w-16 text-center">Order</th>
+                <th className="py-3.5 px-4 w-24">Hero Image</th>
+                <th className="py-3.5 px-4">Category</th>
+                <th className="py-3.5 px-4 hidden md:table-cell">Eyebrow & Subtitle</th>
+                <th className="py-3.5 px-4 w-28 text-center">Status</th>
+                <th className="py-3.5 px-4 w-32 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100 text-xs text-stone-700">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-stone-400 font-light">
+                    No categories found. Click "Add Category" above to create one.
+                  </td>
+                </tr>
+              ) : (
+                items.map((cat, index) => {
+                  const isEnabled = cat.enabled !== false && !cat.hidden;
+                  const heroImg = cat.heroImage || cat.image;
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
-                Category Title * (e.g. RINGS, CHOKERS, PENDANTS)
-              </label>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                placeholder="Category Name"
-                className="w-full border border-stone-300 px-3.5 py-2 text-xs text-black focus:outline-none focus:border-black"
-              />
+                  return (
+                    <tr
+                      key={cat.id}
+                      className={`hover:bg-stone-50/70 transition-colors ${
+                        !isEnabled ? 'opacity-50 bg-stone-50/30' : ''
+                      }`}
+                    >
+                      {/* Order Controls */}
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => handleMoveOrder(index, 'up')}
+                            className="p-1 hover:text-black disabled:opacity-20 transition-opacity"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="font-mono text-xs font-semibold text-black w-5 text-center">
+                            {cat.displayOrder || cat.order || index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={index === items.length - 1}
+                            onClick={() => handleMoveOrder(index, 'down')}
+                            className="p-1 hover:text-black disabled:opacity-20 transition-opacity"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Hero Image Thumbnail */}
+                      <td className="py-3 px-4">
+                        <div className="w-14 h-14 bg-stone-100 border border-stone-200 overflow-hidden flex items-center justify-center">
+                          {heroImg ? (
+                            <img
+                              src={heroImg}
+                              alt={cat.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-stone-400 p-1 text-center">
+                              <ImageIcon className="w-4 h-4 mb-0.5" />
+                              <span className="text-[8px] uppercase tracking-wider font-mono">No Hero</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Category Name & Slug */}
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-black text-sm">
+                          {cat.name}
+                        </div>
+                        <div className="font-mono text-[11px] text-stone-400 mt-0.5">
+                          slug: /{cat.slug}
+                        </div>
+                        {cat.heroTitle && cat.heroTitle !== cat.name.toUpperCase() && (
+                          <div className="text-[10px] text-stone-500 uppercase tracking-wider mt-0.5">
+                            Title: {cat.heroTitle}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Eyebrow & Subtitle */}
+                      <td className="py-3 px-4 hidden md:table-cell text-stone-500 max-w-xs">
+                        <div className="text-[10px] uppercase tracking-wider text-stone-400 font-medium">
+                          {cat.eyebrowText || 'SOFYRA FINE COLLECTION'}
+                        </div>
+                        <div className="text-xs truncate text-stone-600 mt-0.5">
+                          {cat.heroSubtitle || cat.tagline || cat.description || '—'}
+                        </div>
+                      </td>
+
+                      {/* Status Toggle */}
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEnabled(cat)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider border cursor-pointer transition-colors ${
+                            isEnabled
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-stone-100 text-stone-600 border-stone-300 hover:bg-stone-200'
+                          }`}
+                        >
+                          {isEnabled ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                          <span>{isEnabled ? 'Active' : 'Disabled'}</span>
+                        </button>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(cat)}
+                            className="p-1.5 text-stone-600 hover:text-black border border-stone-200 hover:border-black transition-colors"
+                            title="Edit Category"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(cat)}
+                            className="p-1.5 text-stone-400 hover:text-red-700 border border-stone-200 hover:border-red-300 transition-colors"
+                            title="Delete Category"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* EDIT / ADD CATEGORY MODAL DIALOG */}
+      {editingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+          <div className="bg-white border border-stone-200 shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+              <div>
+                <span className="text-[10px] tracking-[0.25em] uppercase text-stone-500 font-medium block">
+                  Category Configuration
+                </span>
+                <h3 className="font-editorial text-2xl uppercase tracking-wider text-black">
+                  {isAddingCategory ? 'Add New Category' : `Edit Category: ${editingCategory.name}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="p-2 text-stone-400 hover:text-black transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
-                Tagline / Subtitle
-              </label>
-              <input
-                type="text"
-                value={newCatTagline}
-                onChange={(e) => setNewCatTagline(e.target.value)}
-                placeholder="e.g. Sculptural drops & eternity bands"
-                className="w-full border border-stone-300 px-3.5 py-2 text-xs text-black focus:outline-none focus:border-black"
-              />
-            </div>
-          </div>
+            {/* Modal Scrollable Form Body */}
+            <form onSubmit={handleSaveForm} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. CATEGORY NAME */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingCategory.name}
+                    onChange={e => handleFormNameChange(e.target.value)}
+                    placeholder="e.g. Pendants, Bangles, Payal"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs text-black focus:border-black focus:outline-none"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">Displayed in category menus and grids.</p>
+                </div>
 
-          <div>
-            <ImageUploadField
-              label="Category Banner / Card Image"
-              currentImage={newCatImage}
-              onImageChange={(url) => setNewCatImage(url)}
-              aspectHint="Banner card aspect ratio (3:4 or 4:5)"
-            />
-          </div>
+                {/* 2. SLUG */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                    Slug / URL Key *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingCategory.slug}
+                    onChange={e => setEditingCategory({ ...editingCategory, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })}
+                    placeholder="e.g. pendants, bangles"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs font-mono text-black focus:border-black focus:outline-none"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">Direct URL route identifier (e.g. #category=pendants).</p>
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAddingCategory(false)}
-              className="px-4 py-2 border border-stone-300 text-xs tracking-wider uppercase text-stone-600 hover:text-black"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleAddCategory}
-              disabled={!newCatName.trim()}
-              className="px-6 py-2 bg-black text-white text-xs tracking-[0.2em] uppercase font-medium hover:bg-stone-800 disabled:opacity-50"
-            >
-              Save Category
-            </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 3. EYEBROW / SMALL HEADING */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                    Eyebrow / Small Heading
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCategory.eyebrowText}
+                    onChange={e => setEditingCategory({ ...editingCategory, eyebrowText: e.target.value })}
+                    placeholder="e.g. SOFYRA FINE COLLECTION"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs text-black focus:border-black focus:outline-none uppercase"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">Subtle uppercase label above the main hero heading.</p>
+                </div>
+
+                {/* 4. CATEGORY TITLE */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                    Category Hero Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCategory.heroTitle}
+                    onChange={e => setEditingCategory({ ...editingCategory, heroTitle: e.target.value })}
+                    placeholder="e.g. PENDANTS"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs text-black focus:border-black focus:outline-none uppercase"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">Large display heading on the category page hero.</p>
+                </div>
+              </div>
+
+              {/* 5. CATEGORY SUBTITLE */}
+              <div>
+                <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                  Category Subtitle / Tagline
+                </label>
+                <input
+                  type="text"
+                  value={editingCategory.heroSubtitle}
+                  onChange={e => setEditingCategory({ ...editingCategory, heroSubtitle: e.target.value })}
+                  placeholder="e.g. SOLITAIRE STONES, MEDALLIONS & SCULPTURAL CHARMS"
+                  className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs text-black focus:border-black focus:outline-none"
+                />
+                <p className="text-[10px] text-stone-500 mt-1">Featured below the category hero title.</p>
+              </div>
+
+              {/* 6. DESCRIPTION */}
+              <div>
+                <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                  Editorial Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingCategory.description}
+                  onChange={e => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                  placeholder="Detailed description of the category's craftsmanship, materials, and design philosophy..."
+                  className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs text-black focus:border-black focus:outline-none resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* 7. HERO IMAGE (Upload / Replace / Remove / Preview) */}
+              <div>
+                <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1.5 font-semibold">
+                  Category Hero Image
+                </label>
+                <ImageUploadField
+                  value={editingCategory.heroImage}
+                  onChange={(url) => setEditingCategory({ ...editingCategory, heroImage: url })}
+                  aspectRatio="hero"
+                  placeholder="Upload category hero photo or paste direct image URL"
+                />
+                <p className="text-[10px] text-stone-500 mt-1">
+                  Upload a high-resolution jewellery image. If left empty, the page will display a clean, elegant typographic header without any placeholder or watch image.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-stone-200">
+                {/* 8. DISPLAY ORDER */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-1 font-semibold">
+                    Display Order (Numeric)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingCategory.displayOrder}
+                    onChange={e => setEditingCategory({ ...editingCategory, displayOrder: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-xs font-mono text-black focus:border-black focus:outline-none"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">Lower numbers appear first in navigation and grids.</p>
+                </div>
+
+                {/* 9. ENABLED (Toggle) */}
+                <div>
+                  <label className="block text-[11px] tracking-[0.2em] uppercase text-stone-700 mb-2 font-semibold">
+                    Visibility Status
+                  </label>
+                  <label className="flex items-center gap-3 p-2.5 border border-stone-200 bg-[#FAF9F6] cursor-pointer hover:border-black transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editingCategory.enabled}
+                      onChange={e => setEditingCategory({ ...editingCategory, enabled: e.target.checked })}
+                      className="w-4 h-4 accent-black cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-black uppercase tracking-wider block">
+                        {editingCategory.enabled ? 'Category Enabled' : 'Category Hidden / Disabled'}
+                      </span>
+                      <span className="text-[10px] text-stone-500">
+                        {editingCategory.enabled
+                          ? 'Visible to customers on public storefront navigation and filters.'
+                          : 'Hidden from public storefront navigation and collections.'}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  disabled={isSaving}
+                  className="px-5 py-2.5 border border-stone-300 text-stone-700 hover:bg-stone-50 text-xs tracking-[0.2em] uppercase font-medium cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-black text-white hover:bg-stone-800 text-xs tracking-[0.2em] uppercase font-semibold cursor-pointer shadow-sm transition-colors flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isSaving ? 'Saving to Firestore...' : (isAddingCategory ? 'Create Category' : 'Save Changes')}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
-      {/* Category List */}
-      <div className="space-y-6">
-        {items.map((cat, index) => (
-          <div
-            key={cat.id}
-            className="bg-white border border-stone-200 p-6 sm:p-8 hover:border-stone-300 transition-colors shadow-xs"
-          >
-            {/* Top Bar: Name, Order, Image preview, Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-stone-100">
-              
-              <div className="flex items-center gap-4">
-                {/* Category Thumbnail */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-stone-100 border border-stone-200 shrink-0 overflow-hidden">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] tracking-[0.2em] uppercase text-stone-400 font-mono">
-                      #{index + 1}
-                    </span>
-                    <h3 className="font-editorial text-xl sm:text-2xl uppercase tracking-wider text-black">
-                      {cat.name}
-                    </h3>
-                  </div>
-                  {cat.tagline && (
-                    <p className="text-xs text-stone-500 font-light mt-0.5">{cat.tagline}</p>
-                  )}
-                  <span className="text-[11px] text-stone-400 font-mono mt-1 block">
-                    Slug: /{cat.slug}
-                  </span>
-                </div>
-              </div>
-
-              {/* Actions & Ordering */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleMoveOrder(index, 'up')}
-                  disabled={index === 0}
-                  className="p-2 border border-stone-200 hover:border-black text-stone-700 hover:text-black disabled:opacity-30 cursor-pointer"
-                  title="Move Up"
-                >
-                  &uarr;
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMoveOrder(index, 'down')}
-                  disabled={index === items.length - 1}
-                  className="p-2 border border-stone-200 hover:border-black text-stone-700 hover:text-black disabled:opacity-30 cursor-pointer"
-                  title="Move Down"
-                >
-                  &darr;
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingCategoryId(editingCategoryId === cat.id ? null : cat.id)}
-                  className="px-3 py-2 border border-stone-200 hover:border-black text-stone-700 hover:text-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>{editingCategoryId === cat.id ? 'Close' : 'Edit Image & Info'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                  className="p-2 border border-rose-200 hover:bg-rose-50 text-rose-600 cursor-pointer"
-                  title="Delete Category"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-
-            </div>
-
-            {/* Editable Details Accordion */}
-            {editingCategoryId === cat.id && (
-              <div className="py-6 border-b border-stone-100 bg-[#FAF9F6] p-4 sm:p-6 mt-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
-                      Category Name
-                    </label>
-                    <input
-                      type="text"
-                      value={cat.name}
-                      onChange={(e) => handleUpdateCategory(cat.id, { name: e.target.value })}
-                      className="w-full border border-stone-300 bg-white px-3.5 py-2 text-xs text-black focus:outline-none focus:border-black"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
-                      Tagline
-                    </label>
-                    <input
-                      type="text"
-                      value={cat.tagline || ''}
-                      onChange={(e) => handleUpdateCategory(cat.id, { tagline: e.target.value })}
-                      className="w-full border border-stone-300 bg-white px-3.5 py-2 text-xs text-black focus:outline-none focus:border-black"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <ImageUploadField
-                    label="Banner / Card Image"
-                    currentImage={cat.image}
-                    onImageChange={(url) => handleUpdateCategory(cat.id, { image: url })}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Subcategories Management */}
-            <div className="pt-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-stone-600" />
-                  <span className="text-xs tracking-[0.2em] uppercase font-medium text-black">
-                    Subcategories ({cat.subcategories?.length || 0})
-                  </span>
-                </div>
-              </div>
-
-              {/* Existing Subcategory Badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {(!cat.subcategories || cat.subcategories.length === 0) ? (
-                  <span className="text-xs text-stone-400 font-light italic">
-                    No subcategories added yet.
-                  </span>
-                ) : (
-                  cat.subcategories.map((sub, sIdx) => {
-                    const subName = getSubcategoryName(sub);
-                    const subKey = getSubcategoryId(sub, sIdx);
-                    return (
-                      <span
-                        key={subKey}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FAF9F6] border border-stone-300 text-xs tracking-wider uppercase text-black font-medium"
-                      >
-                        <span>{subName}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSubcategory(cat.id, sub)}
-                          className="text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
-                          title={`Remove ${subName}`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </span>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Add Subcategory Input */}
-              <div className="flex items-center gap-2 max-w-md">
-                <input
-                  type="text"
-                  value={newSubcategoryInputs[cat.id] || ''}
-                  onChange={(e) =>
-                    setNewSubcategoryInputs({ ...newSubcategoryInputs, [cat.id]: e.target.value })
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddSubcategory(cat.id);
-                    }
-                  }}
-                  placeholder="New subcategory (e.g. Band Rings, Cocktail Rings)..."
-                  className="flex-1 border border-stone-300 bg-white px-3.5 py-2 text-xs text-black focus:outline-none focus:border-black placeholder:text-stone-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddSubcategory(cat.id)}
-                  disabled={!newSubcategoryInputs[cat.id]?.trim()}
-                  className="px-4 py-2 bg-black text-white text-xs tracking-wider uppercase font-medium hover:bg-stone-800 disabled:opacity-50 cursor-pointer shrink-0"
-                >
-                  Add Subcategory
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-        ))}
-      </div>
-
     </div>
   );
 };

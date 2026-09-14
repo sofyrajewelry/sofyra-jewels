@@ -1,4 +1,6 @@
 import { HomepageContent, Product, Order, CustomerReview } from '../types';
+import { uploadImageToFirebaseStorage } from './firebaseService';
+import { isFirebaseConfigured } from '../config/firebase';
 
 const ADMIN_TOKEN_KEY = 'sofyra_admin_session_token';
 
@@ -26,8 +28,20 @@ export const apiClient = {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
   },
 
-  // 1. Permanent Image Upload to /uploads/...
+  // 1. Permanent Image Upload to Firebase Storage or /uploads/...
   async uploadImage(base64OrDataUrl: string, filename?: string): Promise<{ success: boolean; url?: string; error?: string }> {
+    // If Firebase is configured, attempt upload to Firebase Storage
+    if (isFirebaseConfigured()) {
+      try {
+        const firebaseUrl = await uploadImageToFirebaseStorage(base64OrDataUrl, filename || 'image.jpg');
+        if (firebaseUrl) {
+          return { success: true, url: firebaseUrl };
+        }
+      } catch (fbErr) {
+        console.warn('[SOFYRA Firebase Storage] Direct upload failed, falling back to server upload:', fbErr);
+      }
+    }
+
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',

@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useMemo, useRef } from 'react';
+import { storageService } from '../services/storageService';
+import { adminAuthService } from '../services/adminAuthService';
 import { ArrowUp } from 'lucide-react';
 
 interface FooterProps {
@@ -9,6 +11,38 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const clickCountRef = useRef(0);
+  const clickTimerRef = useRef<any>(null);
+
+  const handleAdminSecretTrigger = () => {
+    clickCountRef.current += 1;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    if (clickCountRef.current >= 3) {
+      clickCountRef.current = 0;
+      onNavigate(adminAuthService.isAuthenticated() ? 'admin' : 'auth');
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickCountRef.current = 0;
+    }, 1200);
+  };
+
+  const categories = useMemo(() => {
+    try {
+      const stored = storageService.getCategories();
+      const enabled = (stored || [])
+        .filter(c => c.enabled !== false && !c.hidden)
+        .sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99));
+      if (enabled.length > 0) return enabled.slice(0, 5);
+    } catch {}
+    return [
+      { id: 'rings', slug: 'rings', name: 'Rings' },
+      { id: 'bracelets', slug: 'bracelets', name: 'Bracelets' },
+      { id: 'necklaces', slug: 'necklaces', name: 'Necklaces' },
+      { id: 'earrings', slug: 'earrings', name: 'Earrings' }
+    ];
+  }, []);
 
   return (
     <footer className="bg-[#0E0E0E] text-stone-300 border-t border-white/10 pt-16 pb-12">
@@ -127,42 +161,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               CATEGORIES
             </h4>
             <ul className="space-y-2 text-stone-400">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('category', { category: 'rings' })}
-                  className="hover:text-white transition-colors uppercase cursor-pointer"
-                >
-                  Rings
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('category', { category: 'bracelets' })}
-                  className="hover:text-white transition-colors uppercase cursor-pointer"
-                >
-                  Bracelets
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('category', { category: 'necklaces' })}
-                  className="hover:text-white transition-colors uppercase cursor-pointer"
-                >
-                  Necklaces
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('category', { category: 'earrings' })}
-                  className="hover:text-white transition-colors uppercase cursor-pointer"
-                >
-                  Earrings
-                </button>
-              </li>
+              {categories.map((cat) => (
+                <li key={cat.id || cat.slug}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('category', { category: cat.slug })}
+                    className="hover:text-white transition-colors uppercase cursor-pointer truncate max-w-full block"
+                  >
+                    {cat.name}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -215,7 +224,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
         {/* Bottom Bar with Copyright & Payment Icons */}
         <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-stone-500 font-light">
-          <p>
+          <p
+            onClick={handleAdminSecretTrigger}
+            className="cursor-default select-none"
+            title="SOFYRA Fine Jewellery"
+          >
             &copy; {new Date().getFullYear()} SOFYRA Fine Jewellery. Handcrafted with pride in Pakistan. All rights reserved.
           </p>
 

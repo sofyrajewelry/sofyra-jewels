@@ -49,7 +49,8 @@ import {
   ArrowDown,
   Phone,
   Tag,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -96,7 +97,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Homepage Content Form State
   const [homepageForm, setHomepageForm] = useState<HomepageContent>(homepageContent);
-  const [homepageSubTab, setHomepageSubTab] = useState<'all' | 'hero' | 'categories' | 'editorial' | 'advantages' | 'contactPage'>('all');
+  const [homepageSubTab, setHomepageSubTab] = useState<'all' | 'hero' | 'categories' | 'aboutSofyra' | 'editorial' | 'advantages' | 'contactPage'>('all');
   const [homepageSaveSuccess, setHomepageSaveSuccess] = useState(false);
 
   // Sync auth status with backend on mount
@@ -152,7 +153,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     name: string;
     subtitle: string;
     category: ProductCategory;
-    subcategory: string;
     sku: string;
     price: number;
     compareAtPrice: number;
@@ -172,7 +172,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     name: '',
     subtitle: '',
     category: 'rings',
-    subcategory: '',
     sku: '',
     price: 3500,
     compareAtPrice: 0,
@@ -350,8 +349,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setProductForm({
       name: '',
       subtitle: '',
-      category: categories[0]?.slug || 'rings',
-      subcategory: '',
+      category: (categories[0]?.slug as ProductCategory) || 'rings',
       sku: `SOF-${Math.floor(1000 + Math.random() * 9000)}`,
       price: 3500,
       compareAtPrice: 4200,
@@ -379,7 +377,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       name: prod.name,
       subtitle: prod.subtitle || '',
       category: prod.category,
-      subcategory: prod.subcategory || '',
       sku: prod.sku || '',
       price: prod.price,
       compareAtPrice: prod.compareAtPrice || 0,
@@ -410,15 +407,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
       const discountPercent =
         productForm.compareAtPrice > productForm.price
-          ? Math.round(((productForm.compareAtPrice - productForm.price) / productForm.compareAtPrice) * 100)
-          : undefined;
+            ? Math.round(((productForm.compareAtPrice - productForm.price) / productForm.compareAtPrice) * 100)
+            : undefined;
 
       if (editingProduct) {
         await storageService.updateProduct(editingProduct.id, {
           name: productForm.name,
           subtitle: productForm.subtitle,
           category: productForm.category,
-          subcategory: productForm.subcategory || undefined,
           sku: productForm.sku || undefined,
           price: Number(productForm.price),
           compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
@@ -441,7 +437,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           name: productForm.name,
           subtitle: productForm.subtitle,
           category: productForm.category,
-          subcategory: productForm.subcategory || undefined,
           sku: productForm.sku || undefined,
           price: Number(productForm.price),
           compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
@@ -800,6 +795,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 },
                 { id: 'hero', label: 'Hero Banner' },
                 { id: 'categories', label: 'Categories' },
+                { id: 'aboutSofyra', label: 'About SOFYRA' },
                 { id: 'editorial', label: 'Editorial & Spotlight' },
                 { id: 'contactPage', label: 'Contact Page Image' }
               ].map((sub) => (
@@ -922,7 +918,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   },
                   {
                     label: 'Gold Jewelry Editorial',
-                    url: 'https://images.unsplash.com/photo-1600003014755-ba31aa59c4b6?q=85&w=2000&auto=format&fit=crop'
+                    url: 'https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=85&w=2000&auto=format&fit=crop'
                   }
                 ]}
               />
@@ -1259,6 +1255,306 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     <p className="text-[11px] text-stone-500 font-light leading-relaxed">
                       This portrait image renders in its original full color on both mobile and desktop screens directly above/beside the consultation form.
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SECTION: ABOUT SOFYRA (ADMIN -> HOMEPAGE -> ABOUT SOFYRA) */}
+            {(homepageSubTab === 'all' || homepageSubTab === 'aboutSofyra') && (
+              <div id="about-sofyra-settings" className="bg-white border border-stone-200 p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] tracking-[0.3em] uppercase text-stone-400 font-light">
+                        ADMIN &rarr; HOMEPAGE &rarr; ABOUT SOFYRA
+                      </span>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] uppercase tracking-wider font-semibold">
+                        Full-Colour Enabled
+                      </span>
+                      <span className="px-2 py-0.5 bg-stone-100 text-stone-700 border border-stone-200 text-[9px] uppercase tracking-wider font-mono">
+                        Firebase Storage
+                      </span>
+                    </div>
+                    <h4 className="font-editorial text-xl uppercase tracking-wider text-black">
+                      About SOFYRA — Our Atelier Philosophy
+                    </h4>
+                    <p className="text-xs text-stone-500 font-light mt-1">
+                      Manage the editorial portrait and philosophy displayed on the homepage and about page. Full-colour uploaded images appear with zero grayscale or monochrome filters. Stored permanently in Firebase Storage and Firestore.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsSubmitting(true);
+                        try {
+                          await storageService.saveHomepageContent(homepageForm);
+                          await onRefreshHomepageContent();
+                          setSuccessToast('About SOFYRA image & content saved to Firebase!');
+                          setTimeout(() => setSuccessToast(null), 3500);
+                        } catch (err: any) {
+                          alert('Failed to save About SOFYRA: ' + (err.message || 'Error occurred'));
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-black text-white hover:bg-stone-800 text-xs tracking-wider uppercase font-semibold transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const defaultImg = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop";
+                        const updated: HomepageContent = {
+                          ...homepageForm,
+                          aboutSofyra: {
+                            ...homepageForm.aboutSofyra,
+                            image: defaultImg
+                          }
+                        };
+                        setHomepageForm(updated);
+                        await storageService.saveHomepageContent(updated);
+                        await onRefreshHomepageContent();
+                        setSuccessToast('Reset to reference default image');
+                        setTimeout(() => setSuccessToast(null), 3000);
+                      }}
+                      className="px-3 py-2 border border-stone-300 hover:border-black text-[11px] uppercase tracking-wider text-stone-600 transition-colors cursor-pointer"
+                    >
+                      Reset Default Image
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  {/* Left Column: Image Controls & Text Fields */}
+                  <div className="lg:col-span-7 space-y-6">
+                    {/* Primary Image Upload Field */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-black">
+                          Editorial Portrait Image (16:9 Landscape Aspect Ratio)
+                        </label>
+                        <span className="text-[10px] text-stone-400 uppercase tracking-widest font-mono">
+                          Firebase Storage & Firestore
+                        </span>
+                      </div>
+
+                      <ImageUploadField
+                        label="Editorial Portrait Image"
+                        sublabel="Upload a high-resolution photo. Color images render in full color without grayscale conversion."
+                        value={homepageForm.aboutSofyra?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop"}
+                        onChange={async (url) => {
+                          const updated: HomepageContent = {
+                            ...homepageForm,
+                            aboutSofyra: {
+                              ...homepageForm.aboutSofyra,
+                              image: url
+                            }
+                          };
+                          setHomepageForm(updated);
+                          await storageService.saveHomepageContent(updated);
+                          await onRefreshHomepageContent();
+                          setSuccessToast('About SOFYRA image uploaded and saved to Firebase');
+                          setTimeout(() => setSuccessToast(null), 3000);
+                        }}
+                        aspectRatio="video"
+                        aspectHint="16:9 Landscape Aspect Ratio — Matches Atelier Philosophy layout exactly"
+                      />
+
+                      {/* Quick Action Controls: Upload New, Replace, Remove, Save Changes */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const container = document.getElementById('about-sofyra-settings');
+                            const fileInput = container?.querySelector('input[type="file"]') as HTMLInputElement | null;
+                            fileInput?.click();
+                          }}
+                          className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-black text-[11px] uppercase tracking-wider font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-stone-300"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{homepageForm.aboutSofyra?.image ? 'Replace Image' : 'Upload New Image'}</span>
+                        </button>
+                        {homepageForm.aboutSofyra?.image && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (window.confirm('Are you sure you want to remove the About SOFYRA image?')) {
+                                const updated: HomepageContent = {
+                                  ...homepageForm,
+                                  aboutSofyra: {
+                                    ...homepageForm.aboutSofyra,
+                                    image: ''
+                                  }
+                                };
+                                setHomepageForm(updated);
+                                await storageService.saveHomepageContent(updated);
+                                await onRefreshHomepageContent();
+                                setSuccessToast('Image removed & saved');
+                                setTimeout(() => setSuccessToast(null), 3000);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] uppercase tracking-wider font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-200"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove Image</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsSubmitting(true);
+                            try {
+                              await storageService.saveHomepageContent(homepageForm);
+                              await onRefreshHomepageContent();
+                              setSuccessToast('Changes saved to Firebase Storage & Firestore!');
+                              setTimeout(() => setSuccessToast(null), 3000);
+                            } catch (err: any) {
+                              alert('Save error: ' + (err.message || 'Unknown'));
+                            } finally {
+                              setIsSubmitting(false);
+                            }
+                          }}
+                          className="px-3.5 py-1.5 bg-black text-white hover:bg-stone-800 text-[11px] uppercase tracking-wider font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section Text Fields */}
+                    <div className="border-t border-stone-200 pt-5 space-y-4">
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-stone-400 font-semibold block">
+                        Editorial Philosophy Text (Optional Content Editing)
+                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
+                            Eyebrow Tagline
+                          </label>
+                          <input
+                            type="text"
+                            value={homepageForm.aboutSofyra?.tagline ?? 'Our Atelier Philosophy'}
+                            onChange={(e) => {
+                              setHomepageForm({
+                                ...homepageForm,
+                                aboutSofyra: {
+                                  image: homepageForm.aboutSofyra?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop",
+                                  ...homepageForm.aboutSofyra,
+                                  tagline: e.target.value
+                                }
+                              });
+                            }}
+                            className="w-full border border-stone-300 px-3 py-2 text-xs text-black focus:outline-none focus:border-black"
+                            placeholder="Our Atelier Philosophy"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
+                            Heading
+                          </label>
+                          <input
+                            type="text"
+                            value={homepageForm.aboutSofyra?.heading ?? 'About SOFYRA'}
+                            onChange={(e) => {
+                              setHomepageForm({
+                                ...homepageForm,
+                                aboutSofyra: {
+                                  image: homepageForm.aboutSofyra?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop",
+                                  ...homepageForm.aboutSofyra,
+                                  heading: e.target.value
+                                }
+                              });
+                            }}
+                            className="w-full border border-stone-300 px-3 py-2 text-xs text-black focus:outline-none focus:border-black font-editorial"
+                            placeholder="About SOFYRA"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] tracking-wider uppercase font-medium text-stone-700 mb-1">
+                          Subheading
+                        </label>
+                        <input
+                          type="text"
+                          value={homepageForm.aboutSofyra?.subheading ?? 'Jewellery That Speaks You • Fine Jewellery for the Modern Woman'}
+                          onChange={(e) => {
+                            setHomepageForm({
+                              ...homepageForm,
+                              aboutSofyra: {
+                                image: homepageForm.aboutSofyra?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop",
+                                ...homepageForm.aboutSofyra,
+                                subheading: e.target.value
+                              }
+                            });
+                          }}
+                          className="w-full border border-stone-300 px-3 py-2 text-xs text-black focus:outline-none focus:border-black"
+                          placeholder="Jewellery That Speaks You • Fine Jewellery for the Modern Woman"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Storefront Preview in Full Color */}
+                  <div className="lg:col-span-5 bg-[#FAF9F6] border border-stone-200 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-stone-400 font-semibold">
+                        Storefront Live Preview
+                      </span>
+                      <span className="text-[9px] uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-200 font-medium">
+                        Full-Colour (No Filter)
+                      </span>
+                    </div>
+
+                    {/* Preview Box with 16:9 Aspect Ratio matching storefront */}
+                    <div className="bg-white border border-stone-200 p-4 space-y-3">
+                      <div className="text-center">
+                        <span className="text-[9px] tracking-[0.3em] uppercase text-stone-400 font-light block">
+                          {homepageForm.aboutSofyra?.tagline || 'Our Atelier Philosophy'}
+                        </span>
+                        <h5 className="font-editorial text-base uppercase tracking-wider text-black font-light">
+                          {homepageForm.aboutSofyra?.heading || 'About SOFYRA'}
+                        </h5>
+                      </div>
+
+                      <div className="aspect-[16/9] w-full bg-stone-100 overflow-hidden border border-stone-200 relative">
+                        {homepageForm.aboutSofyra?.image ? (
+                          <img
+                            src={homepageForm.aboutSofyra.image}
+                            alt="About SOFYRA Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 text-xs">
+                            <Upload className="w-6 h-6 mb-1 opacity-50" />
+                            <span>No Image Set</span>
+                          </div>
+                        )}
+                        <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/80 text-white text-[9px] uppercase tracking-wider font-mono">
+                          16:9 • Full Colour
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-stone-500 font-light text-center line-clamp-2">
+                        {homepageForm.aboutSofyra?.subheading || 'Jewellery That Speaks You • Fine Jewellery for the Modern Woman'}
+                      </p>
+                    </div>
+
+                    <div className="bg-stone-50 border border-stone-200 p-3 space-y-1.5 text-[11px] text-stone-600 font-light">
+                      <div className="flex items-center gap-1.5 font-medium text-black">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Persistence Guarantee</span>
+                      </div>
+                      <p className="leading-relaxed">
+                        Uploaded full-colour images are saved directly to Firebase Storage and Firestore. Your image will remain saved across browser refresh, logins, product updates, and category changes.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1980,10 +2276,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     onChange={e => setProductForm({ ...productForm, category: e.target.value as ProductCategory })}
                     className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none uppercase"
                   >
-                    <option value="rings">Rings</option>
-                    <option value="bracelets">Bracelets</option>
-                    <option value="necklaces">Necklaces</option>
-                    <option value="earrings">Earrings</option>
+                    {categories && categories.length > 0 ? (
+                      categories.map(cat => (
+                        <option key={cat.id} value={cat.slug}>
+                          {cat.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="rings">Rings</option>
+                        <option value="bracelets">Bracelets</option>
+                        <option value="necklaces">Necklaces</option>
+                        <option value="earrings">Earrings</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

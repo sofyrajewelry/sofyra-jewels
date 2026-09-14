@@ -142,9 +142,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const careText = siteSettings?.accordions?.care || product.careInfo ||
     "To preserve your jewellery's brilliance, avoid direct contact with perfumes, hairsprays, lotions, and chlorinated pools. Store in the complimentary SOFYRA protective pouch and gently buff with a dry microfibre cloth after wearing.";
 
-  // Related products
+  // Related products (filtered by category)
   const relatedProducts = allProducts
-    .filter((p) => p.id !== product.id && (p.subcategory === product.subcategory || p.category === product.category))
+    .filter((p) => p.id !== product.id && p.category?.toLowerCase() === product.category?.toLowerCase())
     .slice(0, 4);
 
   const fallbackRelated = relatedProducts.length > 0 
@@ -174,14 +174,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               onClick={() => onNavigate('shop')}
               className="hover:text-black transition-colors"
             >
+              Collections
+            </button>
+            <span>/</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('category', { category: product.category })}
+              className="hover:text-black transition-colors text-black font-medium"
+            >
               {product.category || 'Jewellery'}
             </button>
-            {product.subcategory && (
-              <>
-                <span>/</span>
-                <span className="text-black font-medium">{product.subcategory}</span>
-              </>
-            )}
           </div>
           <div className="text-stone-500 font-normal">
             SKU: <span className="text-black">{product.sku || `SOF-${product.id.toUpperCase()}`}</span>

@@ -26,30 +26,30 @@ import { AdminPage } from './pages/AdminPage';
 import { AboutPage } from './pages/AboutPage';
 import { PoliciesPage } from './pages/PoliciesPage';
 import { AuthPage } from './pages/AuthPage';
+import { ShieldCheck } from 'lucide-react';
 
 const VALID_PAGES = ['home', 'shop', 'category', 'product', 'checkout', 'order-confirmation', 'admin', 'auth', 'about', 'policies', 'contact'];
 
 const getInitialRoute = (): string => {
   if (typeof window === 'undefined') return 'home';
 
-  // Support both pathname (e.g. /admin, /auth) and hash (e.g. #admin, #auth)
+  // Support pathname (/admin, /auth), hash (#admin, #auth), and query parameters (?admin, ?auth)
   const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].split('?')[0].toLowerCase();
   const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
-  const target = path || hash;
+  const searchParams = new URLSearchParams(window.location.search);
+  const isQueryAdmin = searchParams.has('admin') || searchParams.get('page') === 'admin';
+  const isQueryAuth = searchParams.has('auth') || searchParams.get('page') === 'auth';
+
+  const target = (isQueryAdmin ? 'admin' : '') || (isQueryAuth ? 'auth' : '') || path || hash;
 
   if (target === 'admin') {
-    // Unauthenticated visitors to /admin MUST be redirected immediately to the storefront homepage
-    if (!adminAuthService.isAuthenticated()) {
-      if (window.history?.replaceState) {
-        window.history.replaceState(null, '', '/');
-      }
-      return 'home';
+    if (adminAuthService.isAuthenticated()) {
+      return 'admin';
     }
-    return 'admin';
+    return 'auth';
   }
 
   if (target === 'auth') {
-    // If owner is already logged in, take them straight to admin
     if (adminAuthService.isAuthenticated()) {
       return 'admin';
     }
@@ -64,7 +64,7 @@ const getInitialRoute = (): string => {
     const saved = sessionStorage.getItem('sofyra_current_page');
     if (saved && VALID_PAGES.includes(saved)) {
       if (saved === 'admin' && !adminAuthService.isAuthenticated()) {
-        return 'home';
+        return 'auth';
       }
       return saved;
     }
@@ -81,19 +81,19 @@ export default function App() {
   const [homepageContent, setHomepageContent] = useState<HomepageContent>(() => storageService.getHomepageContent());
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
 
-  // Sync route on URL pathname / hash change and protect admin route
+  // Sync route on URL pathname / hash / search change and protect admin route
   useEffect(() => {
     const handleLocationChange = () => {
       const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].split('?')[0].toLowerCase();
       const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase();
-      const target = path || hash;
+      const searchParams = new URLSearchParams(window.location.search);
+      const isQueryAdmin = searchParams.has('admin') || searchParams.get('page') === 'admin';
+      const isQueryAuth = searchParams.has('auth') || searchParams.get('page') === 'auth';
+      const target = (isQueryAdmin ? 'admin' : '') || (isQueryAuth ? 'auth' : '') || path || hash;
 
       if (target === 'admin') {
         if (!adminAuthService.isAuthenticated()) {
-          if (window.history?.replaceState) {
-            window.history.replaceState(null, '', '/');
-          }
-          if (currentPage !== 'home') setCurrentPage('home');
+          if (currentPage !== 'auth') setCurrentPage('auth');
           return;
         }
         if (currentPage !== 'admin') setCurrentPage('admin');
@@ -122,6 +122,41 @@ export default function App() {
     };
   }, [currentPage]);
 
+  // Global keyboard shortcut (Ctrl+Shift+A or Cmd+Shift+A or Alt+A) for admin access in preview
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) ||
+        (e.metaKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) ||
+        (e.altKey && (e.key === 'A' || e.key === 'a'))
+      ) {
+        e.preventDefault();
+        if (currentPage === 'admin') {
+          handleNavigate('home');
+        } else if (adminAuthService.isAuthenticated()) {
+          handleNavigate('admin');
+        } else {
+          handleNavigate('auth');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage]);
+
+  // Developer / Preview console access helper
+  useEffect(() => {
+    (window as any).openAdmin = () => {
+      if (adminAuthService.isAuthenticated()) {
+        handleNavigate('admin');
+      } else {
+        handleNavigate('auth');
+      }
+    };
+    (window as any).sofyraAdmin = (window as any).openAdmin;
+  }, []);
+
   useEffect(() => {
     try {
       sessionStorage.setItem('sofyra_current_page', currentPage);
@@ -142,7 +177,7 @@ export default function App() {
     });
     adminAuthService.init().then(auth => {
       if (!auth.authenticated && currentPage === 'admin') {
-        handleNavigate('home');
+        handleNavigate('auth');
       }
     });
   }, []);
@@ -167,17 +202,10 @@ export default function App() {
   const handleNavigate = (page: string, data?: any) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Guard: /admin is restricted to authenticated owners only. Unauthenticated visitors are redirected to home.
+    // Guard: /admin is restricted to authenticated owners. Unauthenticated navigation goes to auth.
     if (page === 'admin' && !adminAuthService.isAuthenticated()) {
-      if (typeof window !== 'undefined' && window.history?.replaceState) {
-        window.history.replaceState(null, '', '/');
-      }
-      setCurrentPage('home');
-      setPageData(null);
-      return;
-    }
-
-    if (page === 'auth' && adminAuthService.isAuthenticated()) {
+      page = 'auth';
+    } else if (page === 'auth' && adminAuthService.isAuthenticated()) {
       page = 'admin';
     }
 
@@ -304,7 +332,7 @@ export default function App() {
 
           {/* 9. ABOUT SOFYRA */}
           {currentPage === 'about' && (
-            <AboutPage onNavigate={handleNavigate} />
+            <AboutPage aboutData={homepageContent.aboutSofyra} onNavigate={handleNavigate} />
           )}
 
           {/* 10. POLICIES & CARE */}
@@ -326,6 +354,33 @@ export default function App() {
         {/* Persistent Dark Luxury Footer */}
         {currentPage !== 'admin' && currentPage !== 'auth' && (
           <Footer onNavigate={handleNavigate} />
+        )}
+
+        {/* Authenticated Administrator Quick Access (Visible ONLY when an administrator session is verified active; strictly hidden from public customers) */}
+        {adminAuthService.isAuthenticated() && currentPage !== 'admin' && currentPage !== 'auth' && (
+          <aside
+            aria-label="Admin Session Access"
+            className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          >
+            <div className="bg-[#111111]/95 text-white border border-stone-700 shadow-2xl px-3.5 py-2 flex items-center gap-3 backdrop-blur-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] tracking-[0.2em] uppercase font-mono text-stone-300">
+                  Admin Active
+                </span>
+              </div>
+              <div className="h-3 w-px bg-stone-700" />
+              <button
+                type="button"
+                onClick={() => handleNavigate('admin')}
+                className="text-[11px] tracking-[0.2em] uppercase font-semibold text-white hover:text-[#C5A880] transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Return to Admin Dashboard"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C5A880]" />
+                <span>Admin Dashboard</span>
+              </button>
+            </div>
+          </aside>
         )}
 
       </div>

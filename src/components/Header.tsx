@@ -18,9 +18,13 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
   const [categories, setCategories] = useState(() => {
     try {
       const stored = storageService.getCategories();
-      if (stored && stored.length > 0) return stored.filter(c => !c.hidden);
+      if (stored && stored.length > 0) {
+        return stored
+          .filter(c => c.enabled !== false && !c.hidden)
+          .sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99));
+      }
     } catch (e) {}
-    return DEFAULT_CATEGORIES.filter(c => !c.hidden);
+    return DEFAULT_CATEGORIES.filter(c => c.enabled !== false && !c.hidden);
   });
 
   useEffect(() => {
@@ -28,7 +32,11 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
       try {
         const stored = storageService.getCategories();
         if (stored && stored.length > 0) {
-          setCategories(stored.filter(c => !c.hidden));
+          setCategories(
+            stored
+              .filter(c => c.enabled !== false && !c.hidden)
+              .sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99))
+          );
         }
       } catch (e) {}
     };

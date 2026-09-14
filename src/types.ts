@@ -13,21 +13,24 @@ export type ProductCategory =
   | 'all'
   | string;
 
-export interface Subcategory {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-}
-
 export interface CategoryItem {
   id: string;
   name: string;
   slug: string;
-  description?: string;
+  heroImage?: string;
   image?: string;
-  subcategories: Subcategory[];
+  eyebrowText?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  description?: string;
+  displayOrder?: number;
+  order?: number;
+  enabled: boolean;
+  hidden?: boolean;
+  tagline?: string;
 }
+
+export type CategoryHierarchyItem = CategoryItem;
 
 export interface ProductVariantOption {
   name: string;
@@ -48,8 +51,8 @@ export interface Product {
   slug: string;
   name: string;
   subtitle?: string;
-  category: string; // e.g. "jewellery" or "rings"
-  subcategory?: string; // e.g. "rings", "necklaces", "bracelets", "earrings", "bangles", "chains"
+  category: string; // Dynamic category slug or name (e.g. "pendants", "rings", "bracelets")
+  subcategory?: string; // Optional legacy field for backwards compatibility
   price: number; // in PKR
   compareAtPrice?: number; // original price
   discountPercent?: number;
@@ -230,26 +233,6 @@ export interface WhySofyraSectionConfig {
   benefits?: WhySofyraBenefit[];
 }
 
-export interface SubcategoryHierarchyItem {
-  id: string;
-  name: string;
-  slug: string;
-  order?: number;
-  description?: string;
-}
-
-export interface CategoryHierarchyItem {
-  id: string;
-  name: string;
-  slug: string;
-  image?: string;
-  tagline?: string;
-  description?: string;
-  order?: number;
-  hidden?: boolean;
-  subcategories: (string | SubcategoryHierarchyItem)[];
-}
-
 export interface CategoryCardData {
   id: string;
   name: string;
@@ -295,4 +278,23 @@ export interface HomepageContent {
     heading?: string;
     subheading?: string;
   };
+  aboutSofyra?: {
+    image: string;
+    tagline?: string;
+    heading?: string;
+    subheading?: string;
+    paragraph1?: string;
+    paragraph2?: string;
+    paragraph3?: string;
+  };
+}
+
+export interface AboutSofyraConfig {
+  image: string;
+  tagline?: string;
+  heading?: string;
+  subheading?: string;
+  paragraph1?: string;
+  paragraph2?: string;
+  paragraph3?: string;
 }

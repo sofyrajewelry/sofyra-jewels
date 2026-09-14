@@ -317,7 +317,8 @@ const DEFAULT_STORE: StoreData = {
       versatilityImage: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=700&auto=format&fit=crop',
       qualityMaterialsImage: 'https://images.unsplash.com/photo-1611591475879-11c58d047321?q=80&w=700&auto=format&fit=crop',
       comfortWearingImage: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=700&auto=format&fit=crop'
-    }
+    },
+    aboutSofyra: DEFAULT_HOMEPAGE_CONTENT.aboutSofyra
   },
   products: INITIAL_PRODUCTS,
   categories: DEFAULT_CATEGORIES,
@@ -429,6 +430,12 @@ function migrateBrokenImages(store: StoreData): boolean {
           adv[key] = (defAdv as any)[key] || adv[key];
           modified = true;
         }
+      }
+    }
+    if (store.homepage.aboutSofyra && store.homepage.aboutSofyra.image) {
+      if (!checkImageExists(store.homepage.aboutSofyra.image, mediaStore)) {
+        store.homepage.aboutSofyra.image = DEFAULT_HOMEPAGE_CONTENT.aboutSofyra?.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop';
+        modified = true;
       }
     }
   }

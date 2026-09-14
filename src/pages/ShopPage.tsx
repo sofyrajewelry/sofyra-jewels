@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Product, ProductCategory } from '../types';
 import { ProductCard } from '../components/ProductCard';
+import { storageService } from '../services/storageService';
 import { Filter, SlidersHorizontal, ArrowUpDown, Sparkles } from 'lucide-react';
 
 interface ShopPageProps {
@@ -75,13 +76,28 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     return list;
   }, [products, selectedCategory, sortBy, onlyInStock, onlySale, onlyNew]);
 
-  const categoriesList: { id: ProductCategory; label: string }[] = [
-    { id: 'all', label: 'All Pieces' },
-    { id: 'rings', label: 'Rings' },
-    { id: 'bracelets', label: 'Bracelets' },
-    { id: 'necklaces', label: 'Necklaces' },
-    { id: 'earrings', label: 'Earrings' }
-  ];
+  const categoriesList = useMemo(() => {
+    try {
+      const stored = storageService.getCategories();
+      const enabled = (stored || [])
+        .filter(c => c.enabled !== false && !c.hidden)
+        .sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99));
+      if (enabled.length > 0) {
+        return [
+          { id: 'all' as ProductCategory, label: 'All Pieces' },
+          ...enabled.map(c => ({ id: c.slug as ProductCategory, label: c.name }))
+        ];
+      }
+    } catch {}
+
+    return [
+      { id: 'all' as ProductCategory, label: 'All Pieces' },
+      { id: 'rings' as ProductCategory, label: 'Rings' },
+      { id: 'bracelets' as ProductCategory, label: 'Bracelets' },
+      { id: 'necklaces' as ProductCategory, label: 'Necklaces' },
+      { id: 'earrings' as ProductCategory, label: 'Earrings' }
+    ];
+  }, []);
 
   return (
     <div className="bg-[#FAF9F6] min-h-screen py-10 md:py-16">

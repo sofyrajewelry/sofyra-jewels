@@ -406,126 +406,182 @@ export const ADVANTAGES_DATA: Advantage[] = [
   }
 ];
 
-export const DEFAULT_CATEGORIES: CategoryHierarchyItem[] = [
+export const DEFAULT_CATEGORIES: CategoryItem[] = [
   {
     id: 'cat-rings',
     name: 'Rings',
     slug: 'rings',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'RINGS',
+    heroSubtitle: 'STACKABLE BANDS, STATEMENT PIECES & ETERNITY RINGS',
     tagline: 'Stackable bands, statement pieces & eternity rings',
     description: 'Fine artisanal rings handcrafted for everyday elegance and modern luxury.',
+    heroImage: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=900&auto=format&fit=crop',
     image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 1,
     order: 1,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-band-rings', name: 'Band Rings', slug: 'band-rings' },
-      { id: 'sub-solitaire', name: 'Solitaire Rings', slug: 'solitaire' },
-      { id: 'sub-eternity', name: 'Eternity Bands', slug: 'eternity-bands' }
-    ]
+    enabled: true,
+    hidden: false
   },
   {
     id: 'cat-bracelets',
     name: 'Bracelets',
     slug: 'bracelets',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'BRACELETS',
+    heroSubtitle: 'CLASSIC TENNIS BRACELETS, CUFFS & LINK CHAINS',
     tagline: 'Classic tennis bracelets, cuffs & link chains',
     description: 'Sculpted wristwear crafted in sterling silver and 18K gold dipping.',
+    heroImage: 'https://images.unsplash.com/photo-1611591475879-11c58d047321?q=85&w=900&auto=format&fit=crop',
     image: 'https://images.unsplash.com/photo-1611591475879-11c58d047321?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 2,
     order: 2,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-tennis', name: 'Tennis Bracelets', slug: 'tennis-bracelets' },
-      { id: 'sub-cuff', name: 'Cuffs & Bangles', slug: 'cuffs' },
-      { id: 'sub-chain-bracelets', name: 'Chain Bracelets', slug: 'chain-bracelets' }
-    ]
+    enabled: true,
+    hidden: false
   },
   {
     id: 'cat-necklaces',
     name: 'Necklaces',
     slug: 'necklaces',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'NECKLACES',
+    heroSubtitle: 'SCULPTED COLLARS, DIAMOND PENDANTS & EVERYDAY CHAINS',
     tagline: 'Sculpted collars, diamond pendants & everyday chains',
     description: 'Layerable collars, fine pendants, and timeless link chains.',
+    heroImage: 'https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=85&w=900&auto=format&fit=crop',
     image: 'https://images.unsplash.com/photo-1599643477877-530eb83abc8e?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 3,
     order: 3,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-chokers', name: 'Chokers', slug: 'chokers' },
-      { id: 'sub-layered', name: 'Layered Chains', slug: 'layered-chains' },
-      { id: 'sub-collars', name: 'Collar Necklaces', slug: 'collar-necklaces' }
-    ]
+    enabled: true,
+    hidden: false
   },
   {
     id: 'cat-earrings',
     name: 'Earrings',
     slug: 'earrings',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'EARRINGS',
+    heroSubtitle: 'SCULPTURAL TEARDROPS, HUGGIES & SPARKLING CHANDELIERS',
     tagline: 'Sculptural teardrops, huggies & sparkling chandeliers',
     description: 'Lightweight, hypoallergenic earrings designed for effortless brilliance.',
+    heroImage: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?q=85&w=900&auto=format&fit=crop',
     image: 'https://images.unsplash.com/photo-1630019852942-f89202989a59?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 4,
     order: 4,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-studs', name: 'Stud Earrings', slug: 'studs' },
-      { id: 'sub-hoops', name: 'Hoop Earrings', slug: 'hoops' },
-      { id: 'sub-drops', name: 'Drop Earrings', slug: 'drops' }
-    ]
+    enabled: true,
+    hidden: false
   },
   {
-    id: 'cat-personalized-jewelry',
-    name: 'Personalized Jewelry',
-    slug: 'personalized-jewelry',
-    tagline: 'Custom engraved initials, nameplates & bespoke keepsakes',
-    description: 'Bespoke custom-crafted initial necklaces, engraved bands, and personalized heirlooms.',
-    image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=85&w=900&auto=format&fit=crop',
-    order: 5,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-name-necklaces', name: 'Name Necklaces', slug: 'name-necklaces' },
-      { id: 'sub-initial-pendants', name: 'Initial Pendants', slug: 'initial-pendants' },
-      { id: 'sub-engraved-cuffs', name: 'Engraved Cuffs', slug: 'engraved-cuffs' }
-    ]
-  },
-  {
-    id: 'cat-jhumke',
-    name: 'Jhumke',
-    slug: 'jhumke',
-    tagline: 'Traditional bell drops, chandbali accents & modern heritage',
-    description: 'Artisanal heritage jhumkas blending South Asian heritage with contemporary lightweight comfort.',
-    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=85&w=900&auto=format&fit=crop',
-    order: 6,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-classic-jhumkas', name: 'Classic Bell Jhumke', slug: 'classic-jhumke' },
-      { id: 'sub-chandbali-jhumkas', name: 'Chandbali Jhumke', slug: 'chandbali-jhumke' },
-      { id: 'sub-pearl-jhumkas', name: 'Pearl Drop Jhumke', slug: 'pearl-jhumke' }
-    ]
-  },
-  {
-    id: 'cat-handchains',
-    name: 'Handchains',
-    slug: 'handchains',
-    tagline: 'Delicate ring-to-wrist silhouettes & modern hathphool',
-    description: 'Flowing hand flowers, dainty slave bracelets, and finger-to-wrist chain adornments.',
+    id: 'cat-bangles',
+    name: 'Bangles',
+    slug: 'bangles',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'BANGLES',
+    heroSubtitle: 'HINGED BANGLES & OPEN SCULPTURAL CUFF BANGLES',
+    tagline: 'Hinged bangles and open sculptural cuff bangles',
+    description: 'Timeless wrist silhouettes crafted for stacking or solo statement elegance.',
+    heroImage: 'https://images.unsplash.com/photo-1611591475824-3453b3df051a?q=85&w=900&auto=format&fit=crop',
     image: 'https://images.unsplash.com/photo-1611591475824-3453b3df051a?q=85&w=900&auto=format&fit=crop',
-    order: 7,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-minimal-hathphool', name: 'Minimal Hathphool', slug: 'minimal-hathphool' },
-      { id: 'sub-crystal-handchains', name: 'Crystal Handchains', slug: 'crystal-handchains' },
-      { id: 'sub-bridal-handchains', name: 'Bridal Hand Chains', slug: 'bridal-handchains' }
-    ]
+    displayOrder: 5,
+    order: 5,
+    enabled: true,
+    hidden: false
+  },
+  {
+    id: 'cat-chains',
+    name: 'Chains',
+    slug: 'chains',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'CHAINS',
+    heroSubtitle: 'BOLD STATEMENT LINK CHAINS & LAYERED SNAKE CHAINS',
+    tagline: 'Bold statement link chains and layered snake chains',
+    description: 'Versatile everyday chains and bold geometric link statement necklaces.',
+    heroImage: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=85&w=900&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 6,
+    order: 6,
+    enabled: true,
+    hidden: false
   },
   {
     id: 'cat-pendants',
     name: 'Pendants',
     slug: 'pendants',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'PENDANTS',
+    heroSubtitle: 'SOLITAIRE STONES, MEDALLIONS & SCULPTURAL CHARMS',
     tagline: 'Solitaire stones, medallions & sculptural charms',
     description: 'Individual charm pendants, solitaire emerald drops, and minimal coin medallions.',
-    image: 'https://images.unsplash.com/photo-1600003014755-ba31aa59c4b6?q=85&w=900&auto=format&fit=crop',
+    heroImage: '',
+    image: '',
+    displayOrder: 7,
+    order: 7,
+    enabled: true,
+    hidden: false
+  },
+  {
+    id: 'cat-jhumkas',
+    name: 'Jhumkas',
+    slug: 'jhumkas',
+    eyebrowText: 'SOFYRA HERITAGE COLLECTION',
+    heroTitle: 'JHUMKAS',
+    heroSubtitle: 'TRADITIONAL BELL DROPS & MODERN HERITAGE ACCENTS',
+    tagline: 'Traditional bell drops, chandbali accents & modern heritage',
+    description: 'Artisanal heritage jhumkas blending South Asian heritage with contemporary lightweight comfort.',
+    heroImage: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=85&w=900&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 8,
     order: 8,
-    hidden: false,
-    subcategories: [
-      { id: 'sub-solitaire-pendants', name: 'Solitaire Pendants', slug: 'solitaire-pendants' },
-      { id: 'sub-medallions', name: 'Coin Medallions', slug: 'coin-medallions' },
-      { id: 'sub-locket-charms', name: 'Locket Charms', slug: 'locket-charms' }
-    ]
+    enabled: true,
+    hidden: false
+  },
+  {
+    id: 'cat-handchains',
+    name: 'Hand Chains',
+    slug: 'handchains',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'HAND CHAINS',
+    heroSubtitle: 'DELICATE RING-TO-WRIST SILHOUETTES & MODERN HATHPHOOL',
+    tagline: 'Delicate ring-to-wrist silhouettes & modern hathphool',
+    description: 'Flowing hand flowers, dainty slave bracelets, and finger-to-wrist chain adornments.',
+    heroImage: 'https://images.unsplash.com/photo-1611591475824-3453b3df051a?q=85&w=900&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1611591475824-3453b3df051a?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 9,
+    order: 9,
+    enabled: true,
+    hidden: false
+  },
+  {
+    id: 'cat-payal',
+    name: 'Payal',
+    slug: 'payal',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'PAYAL',
+    heroSubtitle: 'DELICATE ANKLETS & GLIMMERING HERITAGE CHAINS',
+    tagline: 'Delicate anklets and glimmering heritage chains',
+    description: 'Subtle, jingling ankle chains and minimalist modern foot jewelry.',
+    heroImage: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=85&w=900&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 10,
+    order: 10,
+    enabled: true,
+    hidden: false
+  },
+  {
+    id: 'cat-noserings',
+    name: 'Nose Rings',
+    slug: 'noserings',
+    eyebrowText: 'SOFYRA FINE COLLECTION',
+    heroTitle: 'NOSE RINGS',
+    heroSubtitle: 'DAINTY STUDS, HOOPS & HERITAGE NATHS',
+    tagline: 'Dainty studs, hoops and heritage naths',
+    description: 'Minimalist everyday nose studs, comfort-fit hoops, and traditional statement naths.',
+    heroImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=900&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=900&auto=format&fit=crop',
+    displayOrder: 11,
+    order: 11,
+    enabled: true,
+    hidden: false
   }
 ];
 
@@ -694,7 +750,7 @@ export const CATEGORIES_DATA = [
     name: 'PENDANTS',
     slug: 'pendants',
     tagline: 'Solitaire stones, medallions & sculptural charms',
-    image: 'https://images.unsplash.com/photo-1600003014755-ba31aa59c4b6?q=85&w=900&auto=format&fit=crop'
+    image: ''
   }
 ];
 
@@ -747,5 +803,14 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
     tagline: 'Atelier Concierge',
     heading: 'Contact Us',
     subheading: 'Leave your information — we will be happy to answer your questions and help you choose jewelry.'
+  },
+  aboutSofyra: {
+    tagline: 'Our Atelier Philosophy',
+    heading: 'About SOFYRA',
+    subheading: 'Jewellery That Speaks You • Fine Jewellery for the Modern Woman',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=85&w=1600&auto=format&fit=crop',
+    paragraph1: 'SOFYRA was born out of a desire to redefine fine jewellery in Pakistan. For decades, exquisite jewellery was preserved only for weddings or heavy family lockboxes. We believe brilliance belongs in every ordinary Tuesday afternoon, every morning coffee, and every evening celebration.',
+    paragraph2: 'Each piece in our collection is sculpted from certified 925 sterling silver, layered in radiant 18K yellow or white gold, and guarded by an invisible anti-tarnish microscopic shield. The outcome is jewellery that moves with you effortlessly—lightweight, hypoallergenic, and timeless.',
+    paragraph3: 'From our atelier in Lahore to homes across Karachi, Islamabad, Peshawar, and Quetta, every SOFYRA piece arrives enveloped in our signature plush velvet gift box, complete with a certificate of authenticity.'
   }
 };
