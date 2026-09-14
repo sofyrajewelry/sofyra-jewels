@@ -20,9 +20,16 @@ import {
   getDownloadURL,
   FirebaseStorage
 } from 'firebase/storage';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../config/firebase';
 import { CategoryItem, Product, HomepageContent } from '../types';
+
+export interface FirebaseAuthResult {
+  success: boolean;
+  user?: { uid: string; email: string; role: 'admin' };
+  error?: string;
+  isExistingUser?: boolean;
+}
 
 let appInstance: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
@@ -306,4 +313,254 @@ export const saveHomepageToFirestore = async (content: HomepageContent): Promise
     return false;
   }
 };
+
+// ==========================================
+// 6. FIREBASE AUTHENTICATION & ADMIN ROLES
+// ==========================================
+
+/**
+ * Register a private administrator with Firebase Authentication and record
+ * administrative authorization in Firestore.
+ */
+export const registerAdminWithFirebaseAuth = async (
+  email: string,
+  password: string
+): Promise<FirebaseAuthResult> => {
+  const cleanEmail = email.trim().toLowerCase();
+
+  // Validate format
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+    return {
+      success: false,
+      error: 'Please enter a valid email address (e.g. example@gmail.com).'
+    };
+  }
+
+  if (!password || password.length < 6) {
+    return {
+      success: false,
+      error: 'Password must be at least 6 characters long.'
+    };
+  }
+
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    return {
+      success: false,
+      error: 'Firebase Authentication is not currently initialized.'
+    };
+  }
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    const user = userCredential.user;
+
+    // Securely write administrative role to Firestore
+    const db = getFirebaseDb();
+    if (db) {
+      try {
+        const adminDocRef = doc(db, 'admins', user.uid);
+        await setDoc(adminDocRef, {
+          uid: user.uid,
+          email: cleanEmail,
+          role: 'admin',
+          isMasterAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // Lock public registration in system status doc
+        const configDocRef = doc(db, 'siteContent', 'adminConfig');
+        await setDoc(configDocRef, {
+          hasAdmin: true,
+          masterAdminEmail: cleanEmail,
+          masterAdminUid: user.uid,
+          lockedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (dbErr) {
+        console.warn('[SOFYRA Firebase] Notice: Firestore role recording:', dbErr);
+      }
+    }
+
+    return {
+      success: true,
+      user: {
+        uid: user.uid,
+        email: cleanEmail,
+        role: 'admin'
+      }
+    };
+  } catch (err: any) {
+    const code = err?.code || '';
+    const msg = err?.message || '';
+
+    // If account already exists in Firebase Auth, attempt signing in
+    if (code === 'auth/email-already-in-use') {
+      try {
+        const signInCred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        const user = signInCred.user;
+
+        // Ensure Firestore role is present
+        const db = getFirebaseDb();
+        if (db) {
+          try {
+            const adminDocRef = doc(db, 'admins', user.uid);
+            await setDoc(adminDocRef, {
+              uid: user.uid,
+              email: cleanEmail,
+              role: 'admin',
+              isMasterAdmin: true,
+              lastLogin: new Date().toISOString()
+            }, { merge: true });
+          } catch {}
+        }
+
+        return {
+          success: true,
+          user: {
+            uid: user.uid,
+            email: cleanEmail,
+            role: 'admin'
+          },
+          isExistingUser: true
+        };
+      } catch (signInErr: any) {
+        if (signInErr?.code === 'auth/wrong-password' || signInErr?.code === 'auth/invalid-credential') {
+          return {
+            success: false,
+            error: 'This email is already registered in Firebase Authentication. Please enter your existing password to sign in.'
+          };
+        }
+        return {
+          success: false,
+          error: 'This email is already registered in Firebase Authentication. Please sign in instead.'
+        };
+      }
+    }
+
+    // Human-readable translations for Firebase Auth error codes
+    if (code === 'auth/invalid-email') {
+      return {
+        success: false,
+        error: 'Invalid email address format. Please enter a standard email (e.g. example@gmail.com).'
+      };
+    }
+    if (code === 'auth/weak-password') {
+      return {
+        success: false,
+        error: 'Password is too weak. Please use at least 6 characters.'
+      };
+    }
+    if (code === 'auth/password-does-not-meet-requirements') {
+      return {
+        success: false,
+        error: 'Password does not meet the project security policy requirements (minimum 6 characters).'
+      };
+    }
+    if (code === 'auth/operation-not-allowed') {
+      return {
+        success: false,
+        error: 'Email/Password sign-in provider is not enabled in the Firebase Console.'
+      };
+    }
+    if (code === 'auth/network-request-failed') {
+      return {
+        success: false,
+        error: 'Network connection error while contacting Firebase. Please check your internet connection.'
+      };
+    }
+    if (code === 'auth/too-many-requests') {
+      return {
+        success: false,
+        error: 'Too many requests. Please wait a few moments and try again.'
+      };
+    }
+    if (msg.includes('pattern') || msg.includes('did not match')) {
+      return {
+        success: false,
+        error: 'Format validation error: Please ensure your email is valid (e.g. example@gmail.com) and password is at least 6 characters.'
+      };
+    }
+
+    return {
+      success: false,
+      error: msg || 'Failed to create Firebase administrator account.'
+    };
+  }
+};
+
+/**
+ * Authenticate administrator with Firebase Authentication.
+ */
+export const loginAdminWithFirebaseAuth = async (
+  email: string,
+  password: string
+): Promise<FirebaseAuthResult> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    return { success: false, error: 'Firebase Authentication is not configured.' };
+  }
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+    const user = cred.user;
+
+    // Verify role in Firestore if db is available
+    const db = getFirebaseDb();
+    if (db) {
+      try {
+        const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+        if (adminSnap.exists() && adminSnap.data()?.role !== 'admin') {
+          return { success: false, error: 'This account does not have administrative privileges.' };
+        }
+      } catch {}
+    }
+
+    return {
+      success: true,
+      user: { uid: user.uid, email: cleanEmail, role: 'admin' }
+    };
+  } catch (err: any) {
+    const code = err?.code || '';
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+      return { success: false, error: 'Incorrect email or password.' };
+    }
+    if (code === 'auth/invalid-email') {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    if (code === 'auth/too-many-requests') {
+      return { success: false, error: 'Access temporarily disabled due to multiple failed attempts. Please try again later.' };
+    }
+    return { success: false, error: err?.message || 'Firebase login failed.' };
+  }
+};
+
+/**
+ * Check if an administrator record already exists in Firestore.
+ */
+export const checkFirestoreAdminExists = async (): Promise<{ hasAdmin: boolean; email?: string | null }> => {
+  const db = getFirebaseDb();
+  if (!db) return { hasAdmin: false };
+
+  try {
+    const configSnap = await getDoc(doc(db, 'siteContent', 'adminConfig'));
+    if (configSnap.exists() && configSnap.data()?.hasAdmin) {
+      return { hasAdmin: true, email: configSnap.data()?.masterAdminEmail || null };
+    }
+
+    const adminsCol = collection(db, 'admins');
+    const adminDocs = await getDocs(adminsCol);
+    if (!adminDocs.empty) {
+      const first = adminDocs.docs[0].data();
+      return { hasAdmin: true, email: first.email || null };
+    }
+  } catch (err) {
+    console.warn('[SOFYRA Firebase] Check admin in Firestore error:', err);
+  }
+
+  return { hasAdmin: false };
+};
+
 

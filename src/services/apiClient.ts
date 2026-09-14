@@ -417,7 +417,13 @@ export const apiClient = {
     try {
       const res = await fetch('/api/auth/status');
       if (!res.ok) return { hasAdmin: false, email: null };
-      return await res.json();
+      const text = await res.text();
+      if (!text) return { hasAdmin: false, email: null };
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { hasAdmin: false, email: null };
+      }
     } catch {
       return { hasAdmin: false, email: null };
     }
@@ -425,37 +431,71 @@ export const apiClient = {
 
   async registerAdmin(email: string, password: string, securityPin?: string): Promise<{ success: boolean; error?: string; user?: any }> {
     try {
+      const cleanEmail = (email || '').trim().toLowerCase();
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, securityPin })
+        body: JSON.stringify({
+          email: cleanEmail,
+          password,
+          securityPin: securityPin && securityPin.trim() ? securityPin.trim() : undefined
+        })
       });
-      const data = await res.json();
+
+      let data: any = {};
+      const text = await res.text();
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: res.ok ? 'Unexpected response from server' : `Server responded with status ${res.status}` };
+        }
+      }
+
       if (res.ok && data.token) {
         this.setToken(data.token);
         return { success: true, user: data.user };
       }
-      return { success: false, error: data.error || 'Failed to register admin' };
+      return { success: false, error: data.error || 'Failed to register administrator' };
     } catch (e: any) {
-      return { success: false, error: e.message || 'Registration request failed' };
+      const msg = e?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        return { success: false, error: 'Invalid format. Please check your email and password.' };
+      }
+      return { success: false, error: msg || 'Registration request failed' };
     }
   },
 
   async loginAdmin(email: string, password: string): Promise<{ success: boolean; error?: string; user?: any }> {
     try {
+      const cleanEmail = (email || '').trim().toLowerCase();
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: cleanEmail, password })
       });
-      const data = await res.json();
+
+      let data: any = {};
+      const text = await res.text();
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: 'Invalid server response' };
+        }
+      }
+
       if (res.ok && data.token) {
         this.setToken(data.token);
         return { success: true, user: data.user };
       }
       return { success: false, error: data.error || 'Invalid credentials' };
     } catch (e: any) {
-      return { success: false, error: e.message || 'Login request failed' };
+      const msg = e?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        return { success: false, error: 'Invalid credentials or format.' };
+      }
+      return { success: false, error: msg || 'Login request failed' };
     }
   },
 
@@ -473,7 +513,9 @@ export const apiClient = {
         this.clearToken();
         return { authenticated: false };
       }
-      const data = await res.json();
+      const text = await res.text();
+      if (!text) return { authenticated: false };
+      const data = JSON.parse(text);
       if (!data.authenticated) {
         this.clearToken();
       }
@@ -499,12 +541,21 @@ export const apiClient = {
 
   async resetPasswordWithPin(email: string, securityPin: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const cleanEmail = (email || '').trim().toLowerCase();
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, securityPin, newPassword })
+        body: JSON.stringify({ email: cleanEmail, securityPin: securityPin.trim(), newPassword })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = {};
+        }
+      }
       return { success: res.ok, error: data.error };
     } catch (e: any) {
       return { success: false, error: e.message };

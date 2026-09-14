@@ -1117,18 +1117,45 @@ app.get('/api/auth/status', (req, res) => {
 
 app.post('/api/auth/register', (req, res) => {
   const existingAdmin = readAdmin();
-  if (existingAdmin) {
-    return res.status(400).json({ error: 'An administrator is already registered. Please login.' });
-  }
-
   const { email, password, securityPin } = req.body;
   const cleanEmail = (email || '').trim().toLowerCase();
 
-  if (!cleanEmail || !cleanEmail.includes('@')) {
-    return res.status(400).json({ error: 'Valid email required' });
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address (e.g. example@gmail.com).' });
   }
   if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  }
+
+  if (existingAdmin) {
+    // If this is the same admin re-authenticating, issue a fresh session token
+    if (existingAdmin.email.toLowerCase() === cleanEmail) {
+      const calculatedHash = hashSecret(password, existingAdmin.salt);
+      if (calculatedHash === existingAdmin.passwordHash) {
+        const token = generateToken();
+        const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+        activeSessions[token] = {
+          token,
+          email: cleanEmail,
+          role: 'admin',
+          createdAt: Date.now(),
+          expiresAt
+        };
+        saveSessions();
+
+        return res.json({
+          success: true,
+          token,
+          user: {
+            id: existingAdmin.id,
+            email: existingAdmin.email,
+            role: 'admin'
+          }
+        });
+      }
+    }
+    return res.status(400).json({ error: 'An administrator account has already been registered. Public registration is locked.' });
   }
 
   const salt = crypto.randomBytes(16).toString('hex');
@@ -1136,7 +1163,7 @@ app.post('/api/auth/register', (req, res) => {
 
   let pinHash: string | undefined;
   let pinSalt: string | undefined;
-  if (securityPin && securityPin.trim().length >= 4) {
+  if (securityPin && typeof securityPin === 'string' && securityPin.trim().length >= 4) {
     pinSalt = crypto.randomBytes(16).toString('hex');
     pinHash = hashSecret(securityPin.trim(), pinSalt);
   }

@@ -9,6 +9,12 @@
  */
 
 import { apiClient } from './apiClient';
+import { isFirebaseConfigured } from '../config/firebase';
+import {
+  registerAdminWithFirebaseAuth,
+  loginAdminWithFirebaseAuth,
+  checkFirestoreAdminExists
+} from './firebaseService';
 
 export interface AdminUser {
   id: string;
@@ -53,19 +59,33 @@ try {
 
 export const adminAuthService = {
   /**
-   * Async initialization that verifies status and session with the backend server.
+   * Async initialization that verifies status and session with the backend server and Firestore.
    */
   async init(): Promise<{ hasAdmin: boolean; authenticated: boolean; email: string | null }> {
     try {
+      // 1. If Firebase is configured, check Firestore first
+      if (isFirebaseConfigured()) {
+        try {
+          const fsAdmin = await checkFirestoreAdminExists();
+          if (fsAdmin.hasAdmin) {
+            cachedHasAdmin = true;
+            if (fsAdmin.email) cachedAdminEmail = fsAdmin.email;
+          }
+        } catch (e) {
+          console.warn('[SOFYRA Auth] Firestore check error:', e);
+        }
+      }
+
+      // 2. Check local server auth status
       const authStatus = await apiClient.getAuthStatus();
       if (authStatus.hasAdmin) {
         cachedHasAdmin = true;
-        cachedAdminEmail = authStatus.email;
+        cachedAdminEmail = authStatus.email || cachedAdminEmail;
         localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({
-          email: authStatus.email,
+          email: cachedAdminEmail,
           role: 'admin'
         }));
-      } else {
+      } else if (!cachedHasAdmin) {
         cachedHasAdmin = false;
         cachedAdminEmail = null;
         cachedIsAuthenticated = false;
@@ -146,27 +166,78 @@ export const adminAuthService = {
 
   /**
    * Register the primary administrator account (First-Time Setup).
+   * Validates inputs, uses Firebase Authentication, records Firestore authorization,
+   * and synchronizes the session.
    */
   async registerAdmin(
     email: string,
     password: string,
     securityPin?: string
   ): Promise<{ success: boolean; error?: string }> {
-    const cleanEmail = email.trim().toLowerCase();
-    
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return { success: false, error: 'Please enter a valid email address.' };
+    // 1. Trim and normalize email
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = password || '';
+    const cleanPin = securityPin ? securityPin.trim() : '';
+
+    // 2. Format validation: RFC standard email supporting standard domains like gmail.com
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      return {
+        success: false,
+        error: 'Please enter a valid email address (e.g. example@gmail.com).'
+      };
     }
 
-    // Password strength check
-    if (!password || password.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters long.' };
+    // 3. Password strength check
+    if (!cleanPassword || cleanPassword.length < 6) {
+      return {
+        success: false,
+        error: 'Password must be at least 6 characters long.'
+      };
     }
 
+    // 4. Emergency Recovery PIN is optional; if provided, validate 4-8 chars
+    if (cleanPin && (cleanPin.length < 4 || cleanPin.length > 8)) {
+      return {
+        success: false,
+        error: 'Emergency Recovery PIN must be between 4 and 8 digits (or leave it blank).'
+      };
+    }
+
+    // 5. If Firebase is configured, create the account using Firebase Authentication
+    if (isFirebaseConfigured()) {
+      try {
+        const fbResult = await registerAdminWithFirebaseAuth(cleanEmail, cleanPassword);
+        if (!fbResult.success) {
+          return {
+            success: false,
+            error: fbResult.error || 'Failed to register with Firebase Authentication.'
+          };
+        }
+      } catch (fbErr: any) {
+        console.warn('[SOFYRA Auth] Firebase creation warning:', fbErr);
+        const msg = fbErr?.message || '';
+        if (msg.includes('pattern') || msg.includes('did not match')) {
+          return {
+            success: false,
+            error: 'Format validation error: Please verify your email format (e.g. example@gmail.com).'
+          };
+        }
+        return {
+          success: false,
+          error: msg || 'Firebase Authentication failed.'
+        };
+      }
+    }
+
+    // 6. Synchronize with backend API session
     try {
-      const result = await apiClient.registerAdmin(cleanEmail, password, securityPin);
+      const result = await apiClient.registerAdmin(
+        cleanEmail,
+        cleanPassword,
+        cleanPin ? cleanPin : undefined
+      );
+
       if (result.success) {
         cachedHasAdmin = true;
         cachedAdminEmail = cleanEmail;
@@ -184,7 +255,14 @@ export const adminAuthService = {
       return { success: false, error: result.error || 'Registration failed' };
     } catch (err: any) {
       console.error('Failed to register admin account:', err);
-      return { success: false, error: err.message || 'Registration failed' };
+      const msg = err?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        return {
+          success: false,
+          error: 'Format validation error: Please verify your email format (e.g. example@gmail.com).'
+        };
+      }
+      return { success: false, error: msg || 'Registration failed' };
     }
   },
 
@@ -195,10 +273,34 @@ export const adminAuthService = {
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string }> {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = password || '';
 
+    if (!cleanEmail) {
+      return { success: false, error: 'Please enter your administrator email.' };
+    }
+    if (!cleanPassword) {
+      return { success: false, error: 'Please enter your password.' };
+    }
+
+    // 1. If Firebase is configured, verify with Firebase Auth
+    if (isFirebaseConfigured()) {
+      try {
+        const fbResult = await loginAdminWithFirebaseAuth(cleanEmail, cleanPassword);
+        if (!fbResult.success) {
+          return {
+            success: false,
+            error: fbResult.error || 'Firebase Authentication failed.'
+          };
+        }
+      } catch (fbErr: any) {
+        console.warn('[SOFYRA Auth] Firebase login warning:', fbErr);
+      }
+    }
+
+    // 2. Synchronize with local server session
     try {
-      const result = await apiClient.loginAdmin(cleanEmail, password);
+      const result = await apiClient.loginAdmin(cleanEmail, cleanPassword);
       if (result.success) {
         cachedHasAdmin = true;
         cachedAdminEmail = cleanEmail;
@@ -216,7 +318,11 @@ export const adminAuthService = {
       return { success: false, error: result.error || 'Invalid administrator email or password.' };
     } catch (err: any) {
       console.error('Login error:', err);
-      return { success: false, error: err.message || 'Authentication failed' };
+      const msg = err?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        return { success: false, error: 'Invalid credentials format.' };
+      }
+      return { success: false, error: msg || 'Authentication failed' };
     }
   },
 

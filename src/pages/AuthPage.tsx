@@ -50,18 +50,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
     e.preventDefault();
     setAuthError('');
     setAuthSuccess('');
-    setIsSubmitting(true);
 
+    const cleanEmail = authEmail.trim();
+    if (!cleanEmail) {
+      setAuthError('Please enter your administrator email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const res = await adminAuthService.login(authEmail, authPassword);
+      const res = await adminAuthService.login(cleanEmail, authPassword);
       if (res.success) {
         setAuthPassword('');
         onNavigate('admin');
       } else {
-        setAuthError(res.error || 'Invalid credentials');
+        setAuthError(res.error || 'Invalid administrator credentials');
       }
-    } catch {
-      setAuthError('An unexpected authentication error occurred.');
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        setAuthError('Please check your email format and password.');
+      } else {
+        setAuthError('An unexpected authentication error occurred.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -73,6 +84,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
     setAuthError('');
     setAuthSuccess('');
 
+    const cleanEmail = authEmail.trim();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+    if (!cleanEmail) {
+      setAuthError('Please enter your private administrator email address.');
+      return;
+    }
+
+    if (!emailRegex.test(cleanEmail)) {
+      setAuthError('Please enter a valid email address (e.g. example@gmail.com).');
+      return;
+    }
+
+    if (!authPassword) {
+      setAuthError('Please enter a password.');
+      return;
+    }
+
     if (authPassword !== authConfirmPassword) {
       setAuthError('Passwords do not match. Please re-enter your password.');
       return;
@@ -83,12 +112,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       return;
     }
 
+    if (authSecurityPin && authSecurityPin.trim()) {
+      const pin = authSecurityPin.trim();
+      if (pin.length < 4 || pin.length > 8) {
+        setAuthError('Emergency Recovery PIN must be between 4 and 8 digits (or leave it blank).');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const res = await adminAuthService.registerAdmin(
-        authEmail,
+        cleanEmail,
         authPassword,
-        authSecurityPin
+        authSecurityPin && authSecurityPin.trim() ? authSecurityPin.trim() : undefined
       );
 
       if (res.success) {
@@ -103,8 +140,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       } else {
         setAuthError(res.error || 'Failed to create administrator account.');
       }
-    } catch {
-      setAuthError('Failed to register administrator.');
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        setAuthError('Validation notice: Please ensure your email is formatted correctly (e.g. example@gmail.com) and password is at least 6 characters.');
+      } else {
+        setAuthError(msg || 'Failed to register administrator.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -200,21 +242,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
         {/* VIEW 1: FIRST-TIME REGISTRATION */}
         {!hasAdminAccount && (
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} noValidate className="space-y-4">
             <div>
               <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
                 Private Admin Email *
               </label>
               <input
                 type="email"
-                required
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder="e.g. your-private-email@gmail.com"
+                onChange={e => {
+                  setAuthEmail(e.target.value);
+                  if (authError) setAuthError('');
+                }}
+                onBlur={() => setAuthEmail(prev => prev.trim())}
+                placeholder="e.g. example@gmail.com"
                 className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
               />
               <span className="text-[10px] text-stone-400 mt-0.5 block">
-                This private email will be designated as the sole SOFYRA Administrator.
+                Accepts standard email addresses (e.g. example@gmail.com). Designates the private SOFYRA Administrator.
               </span>
             </div>
 
@@ -225,11 +274,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  required
-                  minLength={6}
+                  autoComplete="new-password"
                   value={authPassword}
-                  onChange={e => setAuthPassword(e.target.value)}
-                  placeholder="Create a strong password (min 6 chars)"
+                  onChange={e => {
+                    setAuthPassword(e.target.value);
+                    if (authError) setAuthError('');
+                  }}
+                  placeholder="Create a secure password (min 6 chars)"
                   className="w-full bg-[#FAF9F6] border border-stone-300 p-3 pr-10 text-sm text-black focus:border-black focus:outline-none"
                 />
                 <button
@@ -248,10 +299,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               </label>
               <input
                 type="password"
-                required
-                minLength={6}
+                autoComplete="new-password"
                 value={authConfirmPassword}
-                onChange={e => setAuthConfirmPassword(e.target.value)}
+                onChange={e => {
+                  setAuthConfirmPassword(e.target.value);
+                  if (authError) setAuthError('');
+                }}
                 placeholder="Confirm password"
                 className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
               />
@@ -264,13 +317,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               <input
                 type="password"
                 maxLength={8}
+                autoComplete="off"
                 value={authSecurityPin}
-                onChange={e => setAuthSecurityPin(e.target.value)}
-                placeholder="4 to 8 digit recovery PIN (e.g. 7482)"
+                onChange={e => {
+                  setAuthSecurityPin(e.target.value);
+                  if (authError) setAuthError('');
+                }}
+                placeholder="4 to 8 digits (or leave blank)"
                 className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none font-mono"
               />
               <span className="text-[10px] text-stone-400 mt-0.5 block">
-                Used if you ever forget your master password.
+                Optional recovery PIN if you ever need to reset your password. Can be left blank.
               </span>
             </div>
 
@@ -296,16 +353,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
         {/* VIEW 2: STANDARD LOGIN */}
         {hasAdminAccount && authView === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} noValidate className="space-y-4">
             <div>
               <label className="block text-[11px] tracking-wider uppercase text-stone-700 mb-1 font-medium">
                 Admin Email
               </label>
               <input
                 type="email"
-                required
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
+                onChange={e => {
+                  setAuthEmail(e.target.value);
+                  if (authError) setAuthError('');
+                }}
+                onBlur={() => setAuthEmail(prev => prev.trim())}
                 placeholder="Enter registered admin email"
                 className="w-full bg-[#FAF9F6] border border-stone-300 p-3 text-sm text-black focus:border-black focus:outline-none"
               />
@@ -330,9 +394,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  required
+                  autoComplete="current-password"
                   value={authPassword}
-                  onChange={e => setAuthPassword(e.target.value)}
+                  onChange={e => {
+                    setAuthPassword(e.target.value);
+                    if (authError) setAuthError('');
+                  }}
                   placeholder="Enter password..."
                   className="w-full bg-[#FAF9F6] border border-stone-300 p-3 pr-10 text-sm text-black focus:border-black focus:outline-none"
                 />

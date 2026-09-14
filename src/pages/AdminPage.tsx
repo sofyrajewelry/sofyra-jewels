@@ -220,6 +220,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setAuthError('');
     setAuthSuccess('');
 
+    const cleanEmail = authEmail.trim();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+    if (!cleanEmail) {
+      setAuthError('Please enter your private administrator email address.');
+      return;
+    }
+
+    if (!emailRegex.test(cleanEmail)) {
+      setAuthError('Please enter a valid email address (e.g. example@gmail.com).');
+      return;
+    }
+
     if (authPassword !== authConfirmPassword) {
       setAuthError('Passwords do not match. Please re-enter your password.');
       return;
@@ -233,9 +246,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setIsSubmitting(true);
     try {
       const res = await adminAuthService.registerAdmin(
-        authEmail,
+        cleanEmail,
         authPassword,
-        authSecurityPin
+        authSecurityPin && authSecurityPin.trim() ? authSecurityPin.trim() : undefined
       );
 
       if (res.success) {
@@ -249,8 +262,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       } else {
         setAuthError(res.error || 'Failed to create administrator account.');
       }
-    } catch {
-      setAuthError('Failed to register administrator.');
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('pattern') || msg.includes('did not match')) {
+        setAuthError('Validation notice: Please ensure your email is formatted correctly (e.g. example@gmail.com) and password is at least 6 characters.');
+      } else {
+        setAuthError(msg || 'Failed to register administrator.');
+      }
     } finally {
       setIsSubmitting(false);
     }
