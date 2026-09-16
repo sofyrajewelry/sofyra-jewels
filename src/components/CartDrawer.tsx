@@ -15,6 +15,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
     removeFromCart,
     updateQuantity,
     subtotal,
+    giftCharges,
     shippingFee,
     total,
     freeShippingThreshold,
@@ -144,12 +145,51 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                       </button>
                     </div>
 
-                    {/* Selected Variants */}
-                    {Object.entries(item.selectedVariantOptions).map(([key, val]) => (
-                      <p key={key} className="text-[11px] text-stone-500 font-light mt-0.5">
-                        {key}: <span className="text-stone-700">{val}</span>
-                      </p>
-                    ))}
+                    {/* Selected Variants & Gift Options */}
+                    {(() => {
+                      const isRingItem =
+                        (item.product.category || '').toLowerCase().trim() === 'rings' ||
+                        (item.product.category || '').toLowerCase().trim() === 'ring';
+
+                      const entries = Object.entries(item.selectedVariantOptions);
+                      const sizeEntry = entries.find(([k]) => k.toLowerCase().includes('size'));
+                      const nonSizeEntries = entries.filter(([k]) => !k.toLowerCase().includes('size'));
+
+                      return (
+                        <>
+                          {nonSizeEntries.map(([key, val]) => (
+                            <p key={key} className="text-[11px] text-stone-500 font-light mt-0.5">
+                              {key}: <span className="text-stone-700">{val}</span>
+                            </p>
+                          ))}
+                          {isRingItem && (
+                            <p className="text-[11px] text-stone-500 font-light mt-0.5">
+                              Size: <span className="text-stone-700">Adjustable — One Size</span>
+                            </p>
+                          )}
+                          {!isRingItem && sizeEntry && (
+                            <p className="text-[11px] text-stone-500 font-light mt-0.5">
+                              {sizeEntry[0]}: <span className="text-stone-700">{sizeEntry[1]}</span>
+                            </p>
+                          )}
+                          {item.giftOptions?.hasPersonalNote && (
+                            <p className="text-[11px] text-stone-600 font-light mt-0.5">
+                              Personal Note:{' '}
+                              <span className="text-stone-800 italic">
+                                "{item.giftOptions.personalNote || 'Included'}"
+                              </span>{' '}
+                              <span className="font-medium text-black">(Rs. 350)</span>
+                            </p>
+                          )}
+                          {item.giftOptions?.hasGiftWrap && (
+                            <p className="text-[11px] text-stone-600 font-light mt-0.5">
+                              Gift Wrap: <span className="text-stone-800">Yes</span>{' '}
+                              <span className="font-medium text-black">(Rs. 520)</span>
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     <p className="text-xs font-medium text-black mt-1">
                       {formatPKR(item.unitPrice)}
@@ -196,6 +236,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onNavigate }) => {
                 <span>Subtotal</span>
                 <span className="font-medium text-black">{formatPKR(subtotal)}</span>
               </div>
+              {giftCharges > 0 && (
+                <div className="flex justify-between text-stone-600">
+                  <span>Gift Options</span>
+                  <span className="font-medium text-black">+{formatPKR(giftCharges)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-stone-600">
                 <span>Nationwide Shipping</span>
                 <span>

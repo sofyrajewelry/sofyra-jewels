@@ -4,7 +4,6 @@ import {
   collection,
   getDocs,
   getDoc,
-  getDocFromServer,
   doc,
   setDoc,
   deleteDoc,
@@ -58,16 +57,14 @@ export const initFirebase = (): {
       ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId)
       : getFirestore(appInstance);
     storageInstance = getStorage(appInstance);
-    authInstance = getAuth(appInstance);
-
-    // Validate connection to Firestore as mandated by skill
-    if (dbInstance) {
-      getDocFromServer(doc(dbInstance, 'test', 'connection')).catch((err) => {
-        if (err instanceof Error && err.message.includes('the client is offline')) {
-          console.error('[SOFYRA Firebase] Please check your Firebase configuration.');
-        }
-      });
+    // Limit upload retry window to 10s so UI never hangs indefinitely if storage is unavailable
+    try {
+      storageInstance.maxUploadRetryTime = 10000;
+      storageInstance.maxOperationRetryTime = 10000;
+    } catch {
+      // Safe fallback if not supported on instance
     }
+    authInstance = getAuth(appInstance);
 
     return { app: appInstance, db: dbInstance, storage: storageInstance, auth: authInstance };
   } catch (error) {
@@ -269,22 +266,102 @@ export const uploadImageToFirebaseStorage = async (
   dataUrlOrBlob: string | Blob,
   fileName: string
 ): Promise<string | null> => {
+  // If it is already a persistent URL, return directly
+  if (
+    typeof dataUrlOrBlob === 'string' &&
+    (dataUrlOrBlob.startsWith('http://') ||
+      dataUrlOrBlob.startsWith('https://') ||
+      dataUrlOrBlob.startsWith('/uploads/'))
+  ) {
+    return dataUrlOrBlob;
+  }
+
   const storage = getFirebaseStorageInstance();
   if (!storage) return null;
 
   try {
-    const uniquePath = `uploads/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const storageRef = ref(storage, uniquePath);
+    let blobToUpload: Blob;
+    let mimeType = 'image/jpeg';
 
     if (typeof dataUrlOrBlob === 'string') {
       if (dataUrlOrBlob.startsWith('data:')) {
-        const snapshot = await uploadString(storageRef, dataUrlOrBlob, 'data_url');
+        const arr = dataUrlOrBlob.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        if (mimeMatch) mimeType = mimeMatch[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        blobToUpload = new Blob([u8arr], { type: mimeType });
+      } else {
+        // Raw base64 string
+        const cleanBase64 = dataUrlOrBlob.replace(/\s/g, '');
+        const bstr = atob(cleanBase64);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        blobToUpload = new Blob([u8arr], { type: mimeType });
+      }
+    } else {
+      blobToUpload = dataUrlOrBlob;
+      if (dataUrlOrBlob.type) {
+        mimeType = dataUrlOrBlob.type;
+      }
+    }
+
+    let ext = 'jpg';
+    if (mimeType.includes('png')) ext = 'png';
+    else if (mimeType.includes('webp')) ext = 'webp';
+    else if (mimeType.includes('gif')) ext = 'gif';
+    else if (mimeType.includes('svg')) ext = 'svg';
+
+    const cleanName = (fileName || 'image').replace(/[^a-zA-Z0-9.-]/g, '_').replace(/\.[^/.]+$/, '');
+    const uniquePath = `uploads/${Date.now()}-${cleanName}.${ext}`;
+
+    const metadata = {
+      contentType: mimeType,
+      cacheControl: 'public, max-age=31536000'
+    };
+
+    const uploadWithTimeout = async (targetStorage: FirebaseStorage): Promise<string> => {
+      const storageRef = ref(targetStorage, uniquePath);
+      const uploadPromise = (async () => {
+        const snapshot = await uploadBytes(storageRef, blobToUpload, metadata);
         return await getDownloadURL(snapshot.ref);
+      })();
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase Storage upload timed out after 10s')), 10000)
+      );
+      return await Promise.race([uploadPromise, timeoutPromise]);
+    };
+
+    try {
+      return await uploadWithTimeout(storage);
+    } catch (primaryErr) {
+      console.warn('[SOFYRA Firebase] Primary bucket upload failed, trying alternate:', primaryErr);
+      const app = getApps()[0] || appInstance;
+      if (app && firebaseConfig.projectId) {
+        const currentBucket = firebaseConfig.storageBucket || '';
+        let altBucket = '';
+        if (currentBucket.endsWith('.firebasestorage.app')) {
+          altBucket = `${firebaseConfig.projectId}.appspot.com`;
+        } else if (currentBucket.endsWith('.appspot.com')) {
+          altBucket = `${firebaseConfig.projectId}.firebasestorage.app`;
+        }
+        if (altBucket && altBucket !== currentBucket) {
+          try {
+            const altStorage = getStorage(app, `gs://${altBucket}`);
+            return await uploadWithTimeout(altStorage);
+          } catch (altErr) {
+            console.warn('[SOFYRA Firebase] Alternate bucket upload also failed:', altErr);
+          }
+        }
       }
       return null;
-    } else {
-      const snapshot = await uploadBytes(storageRef, dataUrlOrBlob);
-      return await getDownloadURL(snapshot.ref);
     }
   } catch (err) {
     console.warn('[SOFYRA Firebase] Storage upload error:', err);

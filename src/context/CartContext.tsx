@@ -1,13 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem } from '../types';
+import { Product, CartItem, GiftOptions } from '../types';
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number, selectedOptions?: Record<string, string>) => void;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    selectedOptions?: Record<string, string>,
+    giftOptions?: GiftOptions
+  ) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, newQty: number) => void;
   clearCart: () => void;
   subtotal: number;
+  giftCharges: number;
   shippingFee: number;
   freeShippingThreshold: number;
   amountUntilFreeShipping: number;
@@ -59,12 +65,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = (
     product: Product,
     quantity = 1,
-    selectedOptions: Record<string, string> = {}
+    selectedOptions: Record<string, string> = {},
+    giftOptions?: GiftOptions
   ) => {
-    // Generate unique ID based on product id + variant selections
+    // Generate unique ID based on product id + variant selections + gift options
     const optionKeys = Object.keys(selectedOptions).sort();
     const optionString = optionKeys.map(k => `${k}:${selectedOptions[k]}`).join('|');
-    const itemId = `${product.id}__${optionString}`;
+    const giftKey = giftOptions
+      ? `_note:${giftOptions.hasPersonalNote ? '1' : '0'}_wrap:${giftOptions.hasGiftWrap ? '1' : '0'}_text:${encodeURIComponent(giftOptions.personalNote || '')}`
+      : '';
+    const itemId = `${product.id}__${optionString}${giftKey}`;
 
     setItems(prevItems => {
       const existing = prevItems.find(item => item.id === itemId);
@@ -80,7 +90,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             product,
             selectedVariantOptions: selectedOptions,
             quantity,
-            unitPrice: product.price
+            unitPrice: product.price,
+            giftOptions: giftOptions && (giftOptions.hasPersonalNote || giftOptions.hasGiftWrap) ? giftOptions : undefined
           }
         ];
       }
@@ -109,10 +120,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const giftCharges = items.reduce((sum, item) => {
+    let g = 0;
+    if (item.giftOptions?.hasPersonalNote) g += 350;
+    if (item.giftOptions?.hasGiftWrap) g += 520;
+    return sum + g;
+  }, 0);
   const totalItemsCount = items.reduce((count, item) => count + item.quantity, 0);
   const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD || items.length === 0 ? 0 : STANDARD_SHIPPING_FEE;
   const amountUntilFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const total = subtotal + shippingFee;
+  const total = subtotal + giftCharges + shippingFee;
 
   return (
     <CartContext.Provider
@@ -123,6 +140,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateQuantity,
         clearCart,
         subtotal,
+        giftCharges,
         shippingFee,
         freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
         amountUntilFreeShipping,

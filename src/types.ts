@@ -81,12 +81,19 @@ export interface Product {
   createdAt: string;
 }
 
+export interface GiftOptions {
+  hasPersonalNote?: boolean;
+  personalNote?: string;
+  hasGiftWrap?: boolean;
+}
+
 export interface CartItem {
   id: string; // unique item id based on product id + variant selections
   product: Product;
   selectedVariantOptions: Record<string, string>; // e.g. { Finish: '18k Gold Plated' }
   quantity: number;
   unitPrice: number;
+  giftOptions?: GiftOptions;
 }
 
 export type PaymentMethod = 'cod' | 'bank_transfer';
@@ -117,6 +124,9 @@ export interface Order {
   subtotal: number;
   shippingFee: number;
   discountAmount?: number;
+  giftCharges?: number;
+  giftNote?: string;
+  hasGiftWrap?: boolean;
   total: number;
   paymentMethod: PaymentMethod;
   status: OrderStatus;

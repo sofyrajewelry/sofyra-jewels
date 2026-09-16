@@ -49,7 +49,7 @@ const PAKISTANI_PROVINCES = [
 ];
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNavigate }) => {
-  const { items, subtotal, shippingFee, clearCart } = useCart();
+  const { items, subtotal, giftCharges, clearCart } = useCart();
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -63,8 +63,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
   });
 
   const isBankTransfer = formData.paymentMethod === 'bank_transfer';
-  const bankTransferDiscount = isBankTransfer ? Math.round(subtotal * 0.10) : 0;
-  const finalTotal = Math.max(0, subtotal - bankTransferDiscount + shippingFee);
+  const shippingFee = isBankTransfer ? 99 : 260;
+  const finalTotal = subtotal + (giftCharges || 0) + shippingFee;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -178,6 +178,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
       return;
     }
 
+    const hasAnyGiftWrap = items.some(item => item.giftOptions?.hasGiftWrap);
+    const combinedGiftNotes = items
+      .filter(item => item.giftOptions?.hasPersonalNote && item.giftOptions?.personalNote)
+      .map(item => item.giftOptions!.personalNote!)
+      .join('\n');
+
     setIsProcessing(true);
 
     setTimeout(() => {
@@ -193,7 +199,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
           items: [...items],
           subtotal,
           shippingFee,
-          discountAmount: bankTransferDiscount,
+          giftCharges: giftCharges > 0 ? giftCharges : undefined,
+          giftNote: combinedGiftNotes || undefined,
+          hasGiftWrap: hasAnyGiftWrap || undefined,
           total: finalTotal,
           paymentMethod: formData.paymentMethod
         });
@@ -360,10 +368,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                 </div>
               </div>
 
-              {/* 3. Payment Method */}
+              {/* 3. Shipping & Payment Method */}
               <div className="bg-white border border-stone-200 p-6 sm:p-8 space-y-4">
                 <h3 className="font-editorial text-xl uppercase tracking-wider text-black pb-3 border-b border-stone-100">
-                  3. Select Payment Method
+                  3. Select Shipping & Payment Method
                 </h3>
 
                 <div className="space-y-3">
@@ -387,12 +395,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold uppercase tracking-wider text-black">
-                          Cash on Delivery (COD)
+                          Cash on Delivery
                         </span>
-                        <Truck className="w-4 h-4 text-stone-700" />
+                        <span className="text-xs font-bold font-mono text-black">
+                          Rs. 260
+                        </span>
                       </div>
                       <p className="text-[11px] text-stone-500 font-light mt-1">
-                        Pay with cash to the courier upon delivery at your doorstep anywhere in Pakistan.
+                        Shipping fee: Rs. 260 &bull; Pay in cash upon delivery to your doorstep anywhere in Pakistan.
                       </p>
                     </div>
                   </label>
@@ -415,14 +425,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                         className="mt-1 accent-black"
                       />
                       <div className="flex-1">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="text-xs font-semibold uppercase tracking-wider text-black">
-                            Direct Bank Transfer (HBL)
+                            Bank Transfer
                           </span>
-                          <Building2 className="w-4 h-4 text-stone-700" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-semibold tracking-wide">
+                            Save Rs. 160, Shipping Rs. 99
+                          </span>
                         </div>
                         <p className="text-[11px] text-stone-500 font-light mt-1">
-                          Transfer directly to our atelier corporate HBL bank account.
+                          Shipping fee: Rs. 99 &bull; Transfer directly to our atelier corporate HBL bank account.
                         </p>
                       </div>
                     </label>
@@ -431,10 +443,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                       <div className="mt-4 pt-3 border-t border-stone-200/80 bg-white p-3.5 space-y-2.5 text-xs">
                         <div className="p-3 bg-stone-50 border border-stone-200">
                           <span className="font-semibold uppercase tracking-wider text-[11px] block text-black">
-                            SAVE 10% WITH BANK TRANSFER
+                            Save Rs. 160, Shipping Rs. 99
                           </span>
                           <p className="text-[11px] text-stone-600 mt-0.5">
-                            Pay via Direct Bank Transfer and receive 10% OFF your order.
+                            Pay via Direct Bank Transfer and enjoy discounted shipping of Rs. 99.
                           </p>
                         </div>
 
@@ -482,7 +494,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
 
                 <div className="pt-2 text-[11px] text-stone-500 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-stone-700" />
-                  <span>Your information is encrypted and securely processed. Online payment gateways will be seamlessly integrated upon official merchant expansion.</span>
+                  <span>Your information is encrypted and securely processed.</span>
                 </div>
               </div>
 
@@ -498,29 +510,64 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
 
                 {/* Items in Checkout */}
                 <div className="divide-y divide-stone-100 max-h-72 overflow-y-auto pr-1">
-                  {items.map(item => (
-                    <div key={item.id} className="py-3 first:pt-0 flex items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={item.product.images[0]}
-                          alt={item.product.name}
-                          className="w-12 h-14 object-cover border border-stone-200 bg-stone-100 shrink-0"
-                        />
-                        <div>
-                          <h4 className="font-medium text-black uppercase tracking-wider line-clamp-1">
-                            {item.product.name}
-                          </h4>
-                          <span className="text-stone-500 text-[11px]">
-                            Qty: {item.quantity}
-                          </span>
-                        </div>
-                      </div>
+                  {items.map(item => {
+                    const isRingItem =
+                      (item.product.category || '').toLowerCase().trim() === 'rings' ||
+                      (item.product.category || '').toLowerCase().trim() === 'ring';
+                    const entries = Object.entries(item.selectedVariantOptions || {});
+                    const sizeEntry = entries.find(([k]) => k.toLowerCase().includes('size'));
+                    const nonSizeEntries = entries.filter(([k]) => !k.toLowerCase().includes('size'));
 
-                      <span className="font-semibold text-black shrink-0">
-                        {formatPKR(item.unitPrice * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
+                    return (
+                      <div key={item.id} className="py-3 first:pt-0 flex items-start justify-between gap-3 text-xs">
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={item.product.images[0]}
+                            alt={item.product.name}
+                            className="w-12 h-14 object-cover border border-stone-200 bg-stone-100 shrink-0"
+                          />
+                          <div>
+                            <h4 className="font-medium text-black uppercase tracking-wider line-clamp-1">
+                              {item.product.name}
+                            </h4>
+                            <span className="text-stone-500 text-[11px] block">
+                              Qty: {item.quantity}
+                            </span>
+                            {nonSizeEntries.map(([k, v]) => (
+                              <span key={k} className="text-stone-500 text-[10px] block">
+                                {k}: {v}
+                              </span>
+                            ))}
+                            {isRingItem ? (
+                              <span className="text-stone-500 text-[10px] block">
+                                Size: Adjustable — One Size
+                              </span>
+                            ) : (
+                              sizeEntry && (
+                                <span className="text-stone-500 text-[10px] block">
+                                  {sizeEntry[0]}: {sizeEntry[1]}
+                                </span>
+                              )
+                            )}
+                            {item.giftOptions?.hasPersonalNote && (
+                              <span className="text-stone-600 italic text-[10px] block mt-0.5">
+                                Note: "{item.giftOptions.personalNote || 'Personal Note'}" (+Rs. 350)
+                              </span>
+                            )}
+                            {item.giftOptions?.hasGiftWrap && (
+                              <span className="text-stone-600 text-[10px] block">
+                                Gift Wrap: Included (+Rs. 520)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="font-semibold text-black shrink-0">
+                          {formatPKR(item.unitPrice * item.quantity)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Breakdown */}
@@ -530,20 +577,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                     <span className="font-medium text-black">{formatPKR(subtotal)}</span>
                   </div>
 
-                  {isBankTransfer && bankTransferDiscount > 0 && (
-                    <div className="flex justify-between text-emerald-800 font-medium">
-                      <span>Bank Transfer Discount (10%)</span>
-                      <span>-{formatPKR(bankTransferDiscount)}</span>
+                  {giftCharges > 0 && (
+                    <div className="flex justify-between text-stone-800">
+                      <span>Gift Options</span>
+                      <span className="font-medium text-black">+{formatPKR(giftCharges)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between items-center">
-                    <span>Delivery Across Pakistan</span>
-                    <span>
-                      {shippingFee === 0 ? (
-                        <span className="text-emerald-800 font-semibold uppercase text-[11px]">Free</span>
+                    <span>Shipping Method</span>
+                    <span className="font-medium text-black">
+                      {isBankTransfer ? (
+                        <span className="text-emerald-800 font-semibold">
+                          Rs. 99 <span className="text-[10px] font-normal text-stone-500">(Bank Transfer &bull; Saved Rs. 160)</span>
+                        </span>
                       ) : (
-                        formatPKR(shippingFee)
+                        <span>Rs. 260 <span className="text-[10px] text-stone-500">(Cash on Delivery)</span></span>
                       )}
                     </span>
                   </div>
@@ -576,13 +625,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                   <span className="text-[11px] tracking-[0.2em] uppercase text-stone-900 font-bold">
                     Order Benefits & Assurance
                   </span>
-                  {shippingFee === 0 ? (
+                  {isBankTransfer ? (
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] uppercase font-semibold tracking-wider border border-emerald-300">
-                      Free Delivery
+                      Saved Rs. 160 Shipping
                     </span>
                   ) : (
                     <span className="text-[10px] text-stone-700 font-medium tracking-wide">
-                      Add {formatPKR(3500 - subtotal)} for Free Shipping
+                      Standard Nationwide Delivery
                     </span>
                   )}
                 </div>
@@ -592,10 +641,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                     <span className="text-black font-bold text-xs shrink-0 mt-0.5">✓</span>
                     <div>
                       <span className="font-semibold text-black uppercase tracking-wider text-xs block">
-                        SAVE 10% WITH BANK TRANSFER
+                        SAVE RS. 160 WITH BANK TRANSFER
                       </span>
                       <span className="text-stone-600 text-xs mt-0.5 block leading-relaxed">
-                        Pay via Direct Bank Transfer and receive 10% OFF your order.
+                        Pay via Direct Bank Transfer and enjoy discounted shipping for only Rs. 99.
                       </span>
                     </div>
                   </div>

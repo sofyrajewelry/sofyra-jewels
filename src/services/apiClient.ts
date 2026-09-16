@@ -56,6 +56,10 @@ export const apiClient = {
       });
 
       if (!res.ok) {
+        // If /api/upload is not reachable (e.g. static Cloudflare deployment)
+        if (typeof base64OrDataUrl === 'string' && base64OrDataUrl.startsWith('data:image/')) {
+          return { success: true, url: base64OrDataUrl };
+        }
         const errData = await res.json().catch(() => ({}));
         return { success: false, error: errData.error || 'Upload failed' };
       }
@@ -63,6 +67,9 @@ export const apiClient = {
       const data = await res.json();
       return { success: true, url: data.url };
     } catch (e: any) {
+      if (typeof base64OrDataUrl === 'string' && base64OrDataUrl.startsWith('data:image/')) {
+        return { success: true, url: base64OrDataUrl };
+      }
       console.error('API uploadImage network error:', e);
       return { success: false, error: e.message || 'Network error during image upload' };
     }

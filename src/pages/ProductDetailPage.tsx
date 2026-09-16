@@ -53,15 +53,40 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
+  // Gift options state
+  const [addPersonalNote, setAddPersonalNote] = useState(false);
+  const [personalNoteText, setPersonalNoteText] = useState('');
+  const [giftWrapOrder, setGiftWrapOrder] = useState(false);
+
   const purchaseActionRef = useRef<HTMLDivElement>(null);
+
+  const isRing =
+    (product.category || '').toLowerCase().trim() === 'rings' ||
+    (product.category || '').toLowerCase().trim() === 'ring';
+
+  const giftCharges = (addPersonalNote ? 350 : 0) + (giftWrapOrder ? 520 : 0);
 
   // Initialize variant defaults and scroll to top on product change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as any });
     setActiveImageIndex(0);
     setQuantity(1);
+    setAddPersonalNote(false);
+    setPersonalNoteText('');
+    setGiftWrapOrder(false);
 
-    if (product.variants && product.variants.length > 0) {
+    if (isRing) {
+      const defaults: Record<string, string> = {};
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach((v) => {
+          if (!v.name.toLowerCase().includes('size') && v.options.length > 0) {
+            defaults[v.name] = v.options[0].name;
+          }
+        });
+      }
+      defaults['Size'] = 'Adjustable — One Size';
+      setSelectedOptions(defaults);
+    } else if (product.variants && product.variants.length > 0) {
       const defaults: Record<string, string> = {};
       product.variants.forEach((v) => {
         if (v.options.length > 0) {
@@ -71,8 +96,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       setSelectedOptions(defaults);
     } else if (product.plating) {
       setSelectedOptions({ Finish: product.plating });
+    } else {
+      setSelectedOptions({});
     }
-  }, [product.id, product.slug]);
+  }, [product.id, product.slug, isRing]);
 
   // Observer for sticky mobile purchase bar
   useEffect(() => {
@@ -99,14 +126,38 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     }
   };
 
+  const getFinalOptionsAndGift = () => {
+    const optionsToPass = { ...selectedOptions };
+    if (isRing) {
+      Object.keys(optionsToPass).forEach((k) => {
+        if (k.toLowerCase().includes('size')) {
+          delete optionsToPass[k];
+        }
+      });
+      optionsToPass['Size'] = 'Adjustable — One Size';
+    }
+    const giftOpts =
+      addPersonalNote || giftWrapOrder
+        ? {
+            hasPersonalNote: addPersonalNote,
+            personalNote: addPersonalNote ? personalNoteText.trim() : undefined,
+            hasGiftWrap: giftWrapOrder
+          }
+        : undefined;
+
+    return { optionsToPass, giftOpts };
+  };
+
   const handleAddToCart = () => {
     if (!product.inStock) return;
-    addToCart(product, quantity, selectedOptions);
+    const { optionsToPass, giftOpts } = getFinalOptionsAndGift();
+    addToCart(product, quantity, optionsToPass, giftOpts);
   };
 
   const handleBuyNow = () => {
     if (!product.inStock) return;
-    addToCart(product, quantity, selectedOptions);
+    const { optionsToPass, giftOpts } = getFinalOptionsAndGift();
+    addToCart(product, quantity, optionsToPass, giftOpts);
     onNavigate('checkout');
   };
 
@@ -314,40 +365,50 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               {product.description}
             </p>
 
-            {/* 5. MATERIAL / FINISH SELECTOR */}
-            {product.variants && product.variants.length > 0 ? (
-              product.variants.map((variant) => (
-                <div key={variant.id} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="tracking-[0.2em] uppercase text-black font-medium">
-                      {variant.name}:
-                    </span>
-                    <span className="text-stone-600 font-normal">
-                      {selectedOptions[variant.name] || variant.options[0]?.name}
-                    </span>
-                  </div>
+            {/* 5. MATERIAL / FINISH SELECTOR & RING SIZE */}
+            {isRing && (
+              <div className="space-y-1.5 text-xs">
+                <span className="tracking-[0.2em] uppercase text-black font-medium">
+                  Size: <span className="text-stone-700 font-normal">Adjustable — One Size</span>
+                </span>
+              </div>
+            )}
 
-                  <div className="flex flex-wrap gap-2">
-                    {variant.options.map((opt) => {
-                      const isSelected = selectedOptions[variant.name] === opt.name;
-                      return (
-                        <button
-                          key={opt.name}
-                          type="button"
-                          onClick={() => handleOptionSelect(variant.name, opt.name, opt.image)}
-                          className={`px-4 py-2 border text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer ${
-                            isSelected
-                              ? 'border-black bg-black text-white font-medium'
-                              : 'border-stone-300 bg-white text-stone-800 hover:border-black'
-                          }`}
-                        >
-                          {opt.name}
-                        </button>
-                      );
-                    })}
+            {product.variants && product.variants.length > 0 ? (
+              product.variants
+                .filter((variant) => !isRing || !variant.name.toLowerCase().includes('size'))
+                .map((variant) => (
+                  <div key={variant.id} className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="tracking-[0.2em] uppercase text-black font-medium">
+                        {variant.name}:
+                      </span>
+                      <span className="text-stone-600 font-normal">
+                        {selectedOptions[variant.name] || variant.options[0]?.name}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {variant.options.map((opt) => {
+                        const isSelected = selectedOptions[variant.name] === opt.name;
+                        return (
+                          <button
+                            key={opt.name}
+                            type="button"
+                            onClick={() => handleOptionSelect(variant.name, opt.name, opt.image)}
+                            className={`px-4 py-2 border text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer ${
+                              isSelected
+                                ? 'border-black bg-black text-white font-medium'
+                                : 'border-stone-300 bg-white text-stone-800 hover:border-black'
+                            }`}
+                          >
+                            {opt.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))
             ) : product.material ? (
               <div className="space-y-1.5 text-xs">
                 <span className="tracking-[0.2em] uppercase text-black font-medium block">
@@ -406,6 +467,89 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   </li>
                 ))}
               </ul>
+            </div>
+
+            {/* MAKE IT A GIFT ♡ */}
+            <div className="p-4 sm:p-5 bg-[#FAF9F6] border border-stone-200/90 space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                <span className="text-xs font-semibold tracking-[0.2em] uppercase text-black">
+                  MAKE IT A GIFT ♡
+                </span>
+                {giftCharges > 0 && (
+                  <span className="text-xs font-semibold text-black tracking-wide">
+                    + {formatPKR(giftCharges)}
+                  </span>
+                )}
+              </div>
+
+              {/* Checkbox 1: Personal Note */}
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={addPersonalNote}
+                    onChange={(e) => {
+                      setAddPersonalNote(e.target.checked);
+                      if (!e.target.checked) setPersonalNoteText('');
+                    }}
+                    className="mt-0.5 w-4 h-4 accent-black rounded-none cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="text-stone-800 tracking-wide font-normal">
+                      Add a personal note — <span className="font-semibold text-black">Rs. 350</span>
+                    </span>
+                  </div>
+                </label>
+
+                {addPersonalNote && (
+                  <div className="pl-7 pt-1">
+                    <textarea
+                      rows={3}
+                      value={personalNoteText}
+                      onChange={(e) => setPersonalNoteText(e.target.value)}
+                      placeholder="Enter your personal gift message to be handwritten or printed on our signature card..."
+                      className="w-full bg-white border border-stone-300 p-2.5 text-xs text-black placeholder:text-stone-400 focus:border-black focus:outline-none resize-none leading-relaxed"
+                    />
+                    <p className="text-[10px] text-stone-500 font-light mt-1">
+                      Your personal note will be elegantly printed and included with the atelier packaging.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Checkbox 2: Gift Wrap */}
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={giftWrapOrder}
+                    onChange={(e) => setGiftWrapOrder(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-black rounded-none cursor-pointer"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="text-stone-800 tracking-wide font-normal">
+                      Gift wrap my order — <span className="font-semibold text-black">Rs. 520</span>
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Selected Options and Charges Breakdown */}
+              {(addPersonalNote || giftWrapOrder) && (
+                <div className="pt-2 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-stone-600">
+                  <span>
+                    Selected:{' '}
+                    {addPersonalNote && giftWrapOrder
+                      ? 'Personal note (Rs. 350) + Gift wrap (Rs. 520)'
+                      : addPersonalNote
+                      ? 'Personal note (Rs. 350)'
+                      : 'Gift wrap (Rs. 520)'}
+                  </span>
+                  <span className="font-semibold text-black">
+                    Total additional gift charges: Rs. {giftCharges}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 9. QUANTITY SELECTOR & ADD TO CART */}

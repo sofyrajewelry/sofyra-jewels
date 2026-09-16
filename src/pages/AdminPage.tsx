@@ -1960,30 +1960,58 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                           <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">
                             Items ({order.items?.length || 0})
                           </span>
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {(order.items || []).map((item, idx) => {
                               const itemName = item.product?.name || (item as any).name || 'Jewellery Item';
                               const itemPrice = item.unitPrice || item.product?.price || 0;
                               const itemQty = item.quantity || 1;
+                              const isRingItem =
+                                (item.product?.category || '').toLowerCase().trim() === 'rings' ||
+                                (item.product?.category || '').toLowerCase().trim() === 'ring';
                               return (
-                                <li key={item.id || item.product?.id || idx} className="flex justify-between">
-                                  <span className="text-stone-700">{itemName} &times; {itemQty}</span>
-                                  <span className="font-mono text-stone-500">{formatPKR(itemPrice * itemQty)}</span>
+                                <li key={item.id || item.product?.id || idx} className="text-stone-700">
+                                  <div className="flex justify-between">
+                                    <span>{itemName} &times; {itemQty}</span>
+                                    <span className="font-mono text-stone-500">{formatPKR(itemPrice * itemQty)}</span>
+                                  </div>
+                                  {isRingItem && (
+                                    <span className="text-[10px] text-stone-500 block">
+                                      Size: Adjustable — One Size
+                                    </span>
+                                  )}
+                                  {item.giftOptions?.hasPersonalNote && (
+                                    <span className="text-[10px] text-stone-600 italic block">
+                                      Note: "{item.giftOptions.personalNote || 'Personal Note'}" (+Rs. 350)
+                                    </span>
+                                  )}
+                                  {item.giftOptions?.hasGiftWrap && (
+                                    <span className="text-[10px] text-stone-600 block">
+                                      Gift Wrap: Yes (+Rs. 520)
+                                    </span>
+                                  )}
                                 </li>
                               );
                             })}
                           </ul>
+                          {order.giftNote && (
+                            <p className="text-[10px] text-stone-600 italic mt-2 bg-stone-50 p-2 border border-stone-200">
+                              Gift Note: "{order.giftNote}"
+                            </p>
+                          )}
                         </div>
 
                         <div className="text-right">
                           <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">Total Due</span>
                           <p className="font-mono font-bold text-lg text-black">{formatPKR(order.total || 0)}</p>
-                          {order.discountAmount && order.discountAmount > 0 ? (
-                            <span className="text-[10px] tracking-wider uppercase text-emerald-700 block mt-0.5 font-medium">
-                              Includes 10% Bank Discount (-{formatPKR(order.discountAmount)})
+                          {order.giftCharges && order.giftCharges > 0 ? (
+                            <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
+                              Includes Gift Services (+{formatPKR(order.giftCharges)})
                             </span>
                           ) : null}
                           <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-1">
+                            Shipping: {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer (Rs. 99)' : 'Cash on Delivery (Rs. 260)'}
+                          </span>
+                          <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
                             Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Direct Bank Transfer (HBL)'}
                           </span>
                         </div>

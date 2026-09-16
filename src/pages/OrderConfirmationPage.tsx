@@ -76,34 +76,64 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
 
           {/* Items */}
           <div className="divide-y divide-stone-100">
-            {order.items.map(item => (
-              <div key={item.id} className="py-3 flex items-center justify-between gap-4 text-xs">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={item.product.images[0]}
-                    alt={item.product.name}
-                    className="w-14 h-16 object-cover border border-stone-200 bg-stone-100 shrink-0"
-                  />
-                  <div>
-                    <h4 className="font-medium text-black uppercase tracking-wider">
-                      {item.product.name}
-                    </h4>
-                    {Object.entries(item.selectedVariantOptions).map(([k, v]) => (
-                      <p key={k} className="text-[10px] text-stone-500 font-light">
-                        {k}: {v}
-                      </p>
-                    ))}
-                    <p className="text-[11px] text-stone-500 mt-0.5">
-                      Qty: {item.quantity} &times; {formatPKR(item.unitPrice)}
-                    </p>
-                  </div>
-                </div>
+            {order.items.map(item => {
+              const isRingItem =
+                (item.product.category || '').toLowerCase().trim() === 'rings' ||
+                (item.product.category || '').toLowerCase().trim() === 'ring';
+              const entries = Object.entries(item.selectedVariantOptions || {});
+              const sizeEntry = entries.find(([k]) => k.toLowerCase().includes('size'));
+              const nonSizeEntries = entries.filter(([k]) => !k.toLowerCase().includes('size'));
 
-                <span className="font-semibold text-black">
-                  {formatPKR(item.unitPrice * item.quantity)}
-                </span>
-              </div>
-            ))}
+              return (
+                <div key={item.id} className="py-3 flex items-start justify-between gap-4 text-xs">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={item.product.images[0]}
+                      alt={item.product.name}
+                      className="w-14 h-16 object-cover border border-stone-200 bg-stone-100 shrink-0"
+                    />
+                    <div>
+                      <h4 className="font-medium text-black uppercase tracking-wider">
+                        {item.product.name}
+                      </h4>
+                      {nonSizeEntries.map(([k, v]) => (
+                        <p key={k} className="text-[10px] text-stone-500 font-light">
+                          {k}: {v}
+                        </p>
+                      ))}
+                      {isRingItem ? (
+                        <p className="text-[10px] text-stone-500 font-light">
+                          Size: Adjustable — One Size
+                        </p>
+                      ) : (
+                        sizeEntry && (
+                          <p className="text-[10px] text-stone-500 font-light">
+                            {sizeEntry[0]}: {sizeEntry[1]}
+                          </p>
+                        )
+                      )}
+                      {item.giftOptions?.hasPersonalNote && (
+                        <p className="text-[10px] text-stone-600 italic mt-0.5">
+                          Personal Note: "{item.giftOptions.personalNote || 'Included'}" (+Rs. 350)
+                        </p>
+                      )}
+                      {item.giftOptions?.hasGiftWrap && (
+                        <p className="text-[10px] text-stone-600">
+                          Gift Wrap: Included (+Rs. 520)
+                        </p>
+                      )}
+                      <p className="text-[11px] text-stone-500 mt-0.5">
+                        Qty: {item.quantity} &times; {formatPKR(item.unitPrice)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="font-semibold text-black">
+                    {formatPKR(item.unitPrice * item.quantity)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Calculations */}
@@ -112,21 +142,48 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
               <span>Subtotal</span>
               <span className="text-black font-medium">{formatPKR(order.subtotal)}</span>
             </div>
-            {order.discountAmount && order.discountAmount > 0 ? (
-              <div className="flex justify-between text-emerald-800 font-medium">
-                <span>Bank Transfer Discount (10%)</span>
-                <span>-{formatPKR(order.discountAmount)}</span>
+            {order.giftCharges && order.giftCharges > 0 ? (
+              <div className="flex justify-between">
+                <span>Gift Options</span>
+                <span className="text-black font-medium">+{formatPKR(order.giftCharges)}</span>
               </div>
             ) : null}
             <div className="flex justify-between">
-              <span>Shipping Fee (TCS/Leopard)</span>
-              <span>{order.shippingFee === 0 ? 'FREE' : formatPKR(order.shippingFee)}</span>
+              <span>
+                Shipping Fee ({order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Cash on Delivery'})
+              </span>
+              <span className="text-black font-medium">
+                {order.paymentMethod === 'bank_transfer' ? (
+                  <span className="text-emerald-800 font-semibold">Rs. 99 (Saved Rs. 160)</span>
+                ) : (
+                  formatPKR(order.shippingFee || 260)
+                )}
+              </span>
             </div>
             <div className="pt-2 border-t border-stone-200 flex justify-between text-base font-bold text-black">
               <span>Total Payable</span>
               <span>{formatPKR(order.total)}</span>
             </div>
           </div>
+
+          {/* Gift Message / Instructions if present */}
+          {(order.hasGiftWrap || order.giftNote) && (
+            <div className="pt-3 border-t border-stone-200 bg-stone-50 p-3.5 space-y-1 text-xs">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-stone-500 block font-semibold">
+                Gift Presentation Details
+              </span>
+              {order.hasGiftWrap && (
+                <p className="text-stone-700 text-[11px]">
+                  &bull; <strong>Gift Wrapping:</strong> Signature velvet pouch & handcrafted presentation box included.
+                </p>
+              )}
+              {order.giftNote && (
+                <p className="text-stone-700 text-[11px] italic">
+                  &bull; <strong>Personal Note:</strong> "{order.giftNote}"
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Payment Instructions */}
           <div className="pt-2">
