@@ -102,6 +102,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Sync auth status with backend on mount
   useEffect(() => {
+    const unsubscribe = adminAuthService.subscribe((authed, user) => {
+      setIsAuthenticated(authed);
+      setAdminUser(user);
+    });
+
     adminAuthService.init().then(res => {
       setHasAdminAccount(res.hasAdmin);
       setIsAuthenticated(res.authenticated);
@@ -136,6 +141,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     storageService.fetchSiteSettings().then(settings => {
       if (settings) setSiteSettings(settings);
     });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Sync if external homepageContent changes
@@ -294,13 +303,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       );
 
       if (res.success) {
-        setAuthSuccess('Password successfully reset! You can now log in with your new password.');
+        setAuthSuccess('Password reset link sent to your registered email! Please check your inbox.');
         setAuthView('login');
         setAuthPassword('');
         setAuthConfirmPassword('');
         setAuthSecurityPin('');
       } else {
-        setAuthError(res.error || 'Recovery failed. Verify your email and PIN.');
+        setAuthError(res.error || 'Password reset request failed. Please check your email.');
       }
     } catch {
       setAuthError('Failed to complete recovery.');

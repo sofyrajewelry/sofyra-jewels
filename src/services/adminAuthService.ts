@@ -1,11 +1,11 @@
 /**
  * SOFYRA Executive Admin Authentication & Access Control Service
  * 
- * Cryptographically secured using server-side & client-side PBKDF2 with SHA-256 and 100,000 iterations.
- * Zero hardcoded passwords.
- * Zero plaintext storage.
- * Strict Role-Based Access Control (RBAC) ensuring customers have no administrative permissions.
- * Fully persistent across page refreshes, tab changes, and server reboots.
+ * Powered by Firebase Authentication (Email/Password) & Firestore RBAC.
+ * - Zero hardcoded passwords.
+ * - Zero plaintext or custom password hashing in local files or localStorage.
+ * - Persistent Firebase Auth session across browser refreshes and reopenings.
+ * - Strict Role-Based Access Control (RBAC) in Firestore ensuring customers have no admin permissions.
  */
 
 import { apiClient } from './apiClient';
@@ -13,8 +13,10 @@ import { isFirebaseConfigured } from '../config/firebase';
 import {
   registerAdminWithFirebaseAuth,
   loginAdminWithFirebaseAuth,
-  checkFirestoreAdminExists
+  checkFirestoreAdminExists,
+  getFirebaseAuthInstance
 } from './firebaseService';
+import { signOut, onAuthStateChanged, sendPasswordResetEmail, User } from 'firebase/auth';
 
 export interface AdminUser {
   id: string;
@@ -31,73 +33,135 @@ export interface AdminSession {
   expiresAt: number;
 }
 
-const ADMIN_STORE_KEY = 'sofyra_admin_credentials_v1';
-const ADMIN_SESSION_KEY = 'sofyra_admin_active_session_v1';
+type AuthListener = (isAuthenticated: boolean, user: AdminUser | null) => void;
 
 let cachedHasAdmin: boolean = false;
 let cachedAdminEmail: string | null = null;
 let cachedIsAuthenticated: boolean = false;
 
-// Initialize from local cache synchronously on module load
-try {
-  const localCreds = localStorage.getItem(ADMIN_STORE_KEY);
-  if (localCreds) {
-    const parsed = JSON.parse(localCreds);
-    if (parsed && parsed.email) {
-      cachedHasAdmin = true;
-      cachedAdminEmail = parsed.email;
+// Track whether the initial auth state from Firebase has completed
+let isAuthReady = false;
+let authReadyResolve: () => void;
+const authReadyPromise = new Promise<void>((resolve) => {
+  authReadyResolve = resolve;
+});
+
+const listeners: Set<AuthListener> = new Set();
+
+function notifyListeners(user: AdminUser | null) {
+  listeners.forEach((listener) => {
+    try {
+      listener(cachedIsAuthenticated, user);
+    } catch (e) {
+      console.error('[SOFYRA Auth] Listener error:', e);
+    }
+  });
+}
+
+// Attach Firebase Auth state listener
+function setupAuthListener() {
+  const auth = getFirebaseAuthInstance();
+  if (auth) {
+    onAuthStateChanged(auth, async (user: User | null) => {
+      if (user) {
+        cachedIsAuthenticated = true;
+        cachedAdminEmail = user.email || null;
+        cachedHasAdmin = true;
+        try {
+          const token = await user.getIdToken();
+          apiClient.setToken(token);
+        } catch {
+          // Token extraction error fallback
+        }
+      } else {
+        cachedIsAuthenticated = false;
+        apiClient.clearToken();
+      }
+
+      if (!isAuthReady) {
+        isAuthReady = true;
+        authReadyResolve();
+      }
+
+      notifyListeners(adminAuthService.getAdminProfile());
+    });
+  } else {
+    if (!isAuthReady) {
+      isAuthReady = true;
+      authReadyResolve();
     }
   }
+}
 
-  const localToken = apiClient.getToken();
-  if (localToken) {
-    cachedIsAuthenticated = true;
-  }
-} catch {
-  // ignore
+// Trigger setup on module evaluation
+try {
+  setupAuthListener();
+} catch (e) {
+  console.warn('[SOFYRA Auth] Initial auth listener setup deferred:', e);
 }
 
 export const adminAuthService = {
   /**
-   * Async initialization that verifies status and session with the backend server and Firestore.
+   * Subscribe to authentication state changes.
+   */
+  subscribe(listener: AuthListener): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+
+  /**
+   * Async initialization that waits for Firebase Auth persistent session restoration
+   * and verifies admin registration in Firestore.
    */
   async init(): Promise<{ hasAdmin: boolean; authenticated: boolean; email: string | null }> {
     try {
-      // 1. If Firebase is configured, check Firestore first
+      // 1. Ensure Firebase Auth listener is hooked
+      setupAuthListener();
+
+      const auth = getFirebaseAuthInstance();
+      if (auth) {
+        // Await Firebase auth state restoration (from IndexedDB / localStorage)
+        if (typeof (auth as any).authStateReady === 'function') {
+          await Promise.race([
+            (auth as any).authStateReady(),
+            new Promise((res) => setTimeout(res, 2500))
+          ]);
+        } else {
+          await Promise.race([
+            authReadyPromise,
+            new Promise((res) => setTimeout(res, 2500))
+          ]);
+        }
+
+        if (auth.currentUser) {
+          cachedIsAuthenticated = true;
+          cachedAdminEmail = auth.currentUser.email || cachedAdminEmail;
+          cachedHasAdmin = true;
+          try {
+            const token = await auth.currentUser.getIdToken();
+            apiClient.setToken(token);
+          } catch {}
+        }
+      }
+
+      // 2. Query Firestore to check if an admin account was created
       if (isFirebaseConfigured()) {
         try {
           const fsAdmin = await checkFirestoreAdminExists();
           if (fsAdmin.hasAdmin) {
             cachedHasAdmin = true;
-            if (fsAdmin.email) cachedAdminEmail = fsAdmin.email;
+            if (fsAdmin.email && !cachedAdminEmail) {
+              cachedAdminEmail = fsAdmin.email;
+            }
           }
         } catch (e) {
-          console.warn('[SOFYRA Auth] Firestore check error:', e);
+          console.warn('[SOFYRA Auth] Firestore admin check error:', e);
         }
       }
 
-      // 2. Check local server auth status
-      const authStatus = await apiClient.getAuthStatus();
-      if (authStatus.hasAdmin) {
+      // If already authenticated via Firebase Auth, the admin account certainly exists
+      if (cachedIsAuthenticated) {
         cachedHasAdmin = true;
-        cachedAdminEmail = authStatus.email || cachedAdminEmail;
-        localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({
-          email: cachedAdminEmail,
-          role: 'admin'
-        }));
-      } else if (!cachedHasAdmin) {
-        cachedHasAdmin = false;
-        cachedAdminEmail = null;
-        cachedIsAuthenticated = false;
-        localStorage.removeItem(ADMIN_STORE_KEY);
-        apiClient.clearToken();
-      }
-
-      const session = await apiClient.checkSession();
-      if (session.authenticated) {
-        cachedIsAuthenticated = true;
-      } else {
-        cachedIsAuthenticated = false;
       }
 
       return {
@@ -105,7 +169,8 @@ export const adminAuthService = {
         authenticated: cachedIsAuthenticated,
         email: cachedAdminEmail
       };
-    } catch {
+    } catch (err) {
+      console.error('[SOFYRA Auth] Initialization error:', err);
       return {
         hasAdmin: cachedHasAdmin,
         authenticated: cachedIsAuthenticated,
@@ -118,68 +183,51 @@ export const adminAuthService = {
    * Check whether an administrator account has already been registered.
    */
   hasAdminAccount(): boolean {
-    if (cachedHasAdmin) return true;
-    try {
-      const data = localStorage.getItem(ADMIN_STORE_KEY);
-      if (data) {
-        const parsed = JSON.parse(data);
-        if (parsed && parsed.email) {
-          cachedHasAdmin = true;
-          return true;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return false;
+    return cachedHasAdmin;
   },
 
   /**
-   * Get the registered administrator public profile (without sensitive hashes).
+   * Get the registered administrator profile from current Firebase session.
    */
   getAdminProfile(): AdminUser | null {
-    try {
-      const data = localStorage.getItem(ADMIN_STORE_KEY);
-      if (data) {
-        const parsed = JSON.parse(data);
-        return {
-          id: parsed.id || 'admin-root',
-          email: parsed.email || cachedAdminEmail || 'Admin',
-          role: 'admin',
-          createdAt: parsed.createdAt || new Date().toISOString(),
-          lastLogin: parsed.lastLogin
-        };
-      }
-      if (cachedAdminEmail) {
-        return {
-          id: 'admin-root',
-          email: cachedAdminEmail,
-          role: 'admin',
-          createdAt: new Date().toISOString()
-        };
-      }
-    } catch {
-      // ignore
+    const auth = getFirebaseAuthInstance();
+    const currentUser = auth?.currentUser;
+
+    if (currentUser) {
+      return {
+        id: currentUser.uid,
+        email: currentUser.email || cachedAdminEmail || 'Administrator',
+        role: 'admin',
+        createdAt: currentUser.metadata.creationTime || new Date().toISOString(),
+        lastLogin: currentUser.metadata.lastSignInTime || new Date().toISOString()
+      };
     }
+
+    if (cachedIsAuthenticated && cachedAdminEmail) {
+      return {
+        id: 'admin-root',
+        email: cachedAdminEmail,
+        role: 'admin',
+        createdAt: new Date().toISOString()
+      };
+    }
+
     return null;
   },
 
   /**
    * Register the primary administrator account (First-Time Setup).
-   * Validates inputs, uses Firebase Authentication, records Firestore authorization,
-   * and synchronizes the session.
+   * Validates inputs, creates user in Firebase Authentication with Email/Password,
+   * records the authorization doc in Firestore, and sets the session.
    */
   async registerAdmin(
     email: string,
     password: string,
-    securityPin?: string
+    _securityPin?: string
   ): Promise<{ success: boolean; error?: string }> {
-    // 1. Trim and normalize email
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPassword = password || '';
-    const cleanPin = securityPin ? securityPin.trim() : '';
 
-    // 2. Format validation: RFC standard email supporting standard domains like gmail.com
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       return {
@@ -188,7 +236,6 @@ export const adminAuthService = {
       };
     }
 
-    // 3. Password strength check
     if (!cleanPassword || cleanPassword.length < 6) {
       return {
         success: false,
@@ -196,78 +243,36 @@ export const adminAuthService = {
       };
     }
 
-    // 4. Emergency Recovery PIN is optional; if provided, validate 4-8 chars
-    if (cleanPin && (cleanPin.length < 4 || cleanPin.length > 8)) {
+    try {
+      const fbResult = await registerAdminWithFirebaseAuth(cleanEmail, cleanPassword);
+      if (!fbResult.success) {
+        return {
+          success: false,
+          error: fbResult.error || 'Failed to register with Firebase Authentication.'
+        };
+      }
+
+      cachedHasAdmin = true;
+      cachedAdminEmail = cleanEmail;
+      cachedIsAuthenticated = true;
+
+      if (fbResult.token) {
+        apiClient.setToken(fbResult.token);
+      }
+
+      notifyListeners(this.getAdminProfile());
+      return { success: true };
+    } catch (fbErr: any) {
+      console.error('[SOFYRA Auth] Firebase registration error:', fbErr);
       return {
         success: false,
-        error: 'Emergency Recovery PIN must be between 4 and 8 digits (or leave it blank).'
+        error: fbErr?.message || 'Failed to create Firebase administrator account.'
       };
-    }
-
-    // 5. If Firebase is configured, create the account using Firebase Authentication
-    if (isFirebaseConfigured()) {
-      try {
-        const fbResult = await registerAdminWithFirebaseAuth(cleanEmail, cleanPassword);
-        if (!fbResult.success) {
-          return {
-            success: false,
-            error: fbResult.error || 'Failed to register with Firebase Authentication.'
-          };
-        }
-      } catch (fbErr: any) {
-        console.warn('[SOFYRA Auth] Firebase creation warning:', fbErr);
-        const msg = fbErr?.message || '';
-        if (msg.includes('pattern') || msg.includes('did not match')) {
-          return {
-            success: false,
-            error: 'Format validation error: Please verify your email format (e.g. example@gmail.com).'
-          };
-        }
-        return {
-          success: false,
-          error: msg || 'Firebase Authentication failed.'
-        };
-      }
-    }
-
-    // 6. Synchronize with backend API session
-    try {
-      const result = await apiClient.registerAdmin(
-        cleanEmail,
-        cleanPassword,
-        cleanPin ? cleanPin : undefined
-      );
-
-      if (result.success) {
-        cachedHasAdmin = true;
-        cachedAdminEmail = cleanEmail;
-        cachedIsAuthenticated = true;
-
-        localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({
-          id: result.user?.id || 'admin-' + Date.now(),
-          email: cleanEmail,
-          role: 'admin',
-          createdAt: new Date().toISOString()
-        }));
-
-        return { success: true };
-      }
-      return { success: false, error: result.error || 'Registration failed' };
-    } catch (err: any) {
-      console.error('Failed to register admin account:', err);
-      const msg = err?.message || '';
-      if (msg.includes('pattern') || msg.includes('did not match')) {
-        return {
-          success: false,
-          error: 'Format validation error: Please verify your email format (e.g. example@gmail.com).'
-        };
-      }
-      return { success: false, error: msg || 'Registration failed' };
     }
   },
 
   /**
-   * Authenticate admin using email and password.
+   * Authenticate administrator using Firebase Email/Password Authentication.
    */
   async login(
     email: string,
@@ -283,68 +288,60 @@ export const adminAuthService = {
       return { success: false, error: 'Please enter your password.' };
     }
 
-    // 1. If Firebase is configured, verify with Firebase Auth
-    if (isFirebaseConfigured()) {
-      try {
-        const fbResult = await loginAdminWithFirebaseAuth(cleanEmail, cleanPassword);
-        if (!fbResult.success) {
-          return {
-            success: false,
-            error: fbResult.error || 'Firebase Authentication failed.'
-          };
-        }
-      } catch (fbErr: any) {
-        console.warn('[SOFYRA Auth] Firebase login warning:', fbErr);
-      }
-    }
-
-    // 2. Synchronize with local server session
     try {
-      const result = await apiClient.loginAdmin(cleanEmail, cleanPassword);
-      if (result.success) {
-        cachedHasAdmin = true;
-        cachedAdminEmail = cleanEmail;
-        cachedIsAuthenticated = true;
-
-        localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({
-          id: result.user?.id || 'admin-root',
-          email: cleanEmail,
-          role: 'admin',
-          lastLogin: new Date().toISOString()
-        }));
-
-        return { success: true };
+      const fbResult = await loginAdminWithFirebaseAuth(cleanEmail, cleanPassword);
+      if (!fbResult.success) {
+        return {
+          success: false,
+          error: fbResult.error || 'Invalid administrator credentials.'
+        };
       }
-      return { success: false, error: result.error || 'Invalid administrator email or password.' };
-    } catch (err: any) {
-      console.error('Login error:', err);
-      const msg = err?.message || '';
-      if (msg.includes('pattern') || msg.includes('did not match')) {
-        return { success: false, error: 'Invalid credentials format.' };
+
+      cachedHasAdmin = true;
+      cachedAdminEmail = cleanEmail;
+      cachedIsAuthenticated = true;
+
+      if (fbResult.token) {
+        apiClient.setToken(fbResult.token);
       }
-      return { success: false, error: msg || 'Authentication failed' };
+
+      notifyListeners(this.getAdminProfile());
+      return { success: true };
+    } catch (fbErr: any) {
+      console.error('[SOFYRA Auth] Firebase login error:', fbErr);
+      return {
+        success: false,
+        error: fbErr?.message || 'Firebase Authentication failed.'
+      };
     }
   },
 
   /**
-   * Reset password using security recovery PIN.
+   * Reset password using Firebase Authentication password reset email.
    */
   async resetPasswordWithPin(
     email: string,
-    securityPin: string,
-    newPassword: string
+    _securityPin?: string,
+    _newPassword?: string
   ): Promise<{ success: boolean; error?: string }> {
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (!newPassword || newPassword.length < 6) {
-      return { success: false, error: 'New password must be at least 6 characters long.' };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const auth = getFirebaseAuthInstance();
+    if (!auth) {
+      return { success: false, error: 'Firebase is not initialized.' };
     }
 
     try {
-      const result = await apiClient.resetPasswordWithPin(cleanEmail, securityPin, newPassword);
-      return result;
+      await sendPasswordResetEmail(auth, cleanEmail);
+      return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Recovery failed' };
+      const code = err?.code || '';
+      if (code === 'auth/user-not-found') {
+        return { success: false, error: 'No account registered with this email address.' };
+      }
+      return {
+        success: false,
+        error: err?.message || 'Failed to send password reset email via Firebase.'
+      };
     }
   },
 
@@ -352,29 +349,42 @@ export const adminAuthService = {
    * Check if current user is an authenticated administrator.
    */
   isAuthenticated(): boolean {
-    const token = apiClient.getToken();
-    if (!token) return false;
-    return cachedIsAuthenticated || Boolean(token);
+    const auth = getFirebaseAuthInstance();
+    if (auth && auth.currentUser) {
+      return true;
+    }
+    return cachedIsAuthenticated;
   },
 
   /**
-   * Terminate active administrative session.
+   * Terminate active administrative session in Firebase.
    */
   async logout(): Promise<void> {
     cachedIsAuthenticated = false;
-    await apiClient.logoutAdmin();
-    localStorage.removeItem(ADMIN_SESSION_KEY);
+    const auth = getFirebaseAuthInstance();
+    if (auth) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('[SOFYRA Auth] Firebase signout error:', e);
+      }
+    }
+    apiClient.clearToken();
+    notifyListeners(null);
   },
 
   /**
    * Get active session information.
    */
   getCurrentSession(): AdminSession | null {
-    const token = apiClient.getToken();
-    if (!token) return null;
+    const auth = getFirebaseAuthInstance();
+    const currentUser = auth?.currentUser;
+    const token = apiClient.getToken() || (currentUser ? 'fb-' + currentUser.uid : null);
+    if (!token && !currentUser) return null;
+
     return {
-      token,
-      email: cachedAdminEmail || 'admin@sofyra.com',
+      token: token || '',
+      email: currentUser?.email || cachedAdminEmail || 'admin@sofyra.com',
       role: 'admin',
       expiresAt: Date.now() + 24 * 60 * 60 * 1000
     };

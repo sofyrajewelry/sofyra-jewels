@@ -1,12 +1,13 @@
 /**
  * SOFYRA - Firebase & Cloud Database Configuration
  * 
- * To connect your live Firebase Firestore database:
- * 1. Create a free project at https://console.firebase.google.com
- * 2. Create a Firestore Database in production/test mode
- * 3. Add a Web App in Firebase Project Settings
- * 4. Paste your configuration credentials below (or use environment variables)
- * 5. Set `isFirebaseEnabled` to `true`
+ * Reads standard Vite build environment variables provided via import.meta.env:
+ * - VITE_FIREBASE_API_KEY
+ * - VITE_FIREBASE_AUTH_DOMAIN
+ * - VITE_FIREBASE_PROJECT_ID
+ * - VITE_FIREBASE_STORAGE_BUCKET
+ * - VITE_FIREBASE_MESSAGING_SENDER_ID
+ * - VITE_FIREBASE_APP_ID
  */
 
 export interface FirebaseConfig {
@@ -16,16 +17,18 @@ export interface FirebaseConfig {
   storageBucket: string;
   messagingSenderId: string;
   appId: string;
+  firestoreDatabaseId?: string;
 }
 
-// User credentials placeholder - easily editable or configured via .env:
+// Injected by Vite build via Cloudflare / production environment variables:
 export const firebaseConfig: FirebaseConfig = {
-  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || "",
-  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || "sofyra-jewellery.firebaseapp.com",
-  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || "sofyra-jewellery",
-  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || "sofyra-jewellery.appspot.com",
-  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || ""
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDU4rR6H1jVq7BuBszTamUV0jlQAr0GLmo",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0301737033.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0301737033",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0301737033.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "49762632999",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:49762632999:web:7fca918b45d5624cc8d502",
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined
 };
 
 export const isFirebaseConfigured = (): boolean => {

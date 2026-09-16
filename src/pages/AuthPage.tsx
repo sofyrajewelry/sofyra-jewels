@@ -29,6 +29,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       return;
     }
 
+    const unsubscribe = adminAuthService.subscribe((authed) => {
+      if (authed) {
+        onNavigate('admin');
+      }
+    });
+
     // Sync admin status with backend
     adminAuthService.init().then(res => {
       if (res.authenticated) {
@@ -43,6 +49,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         }
       }
     });
+
+    return () => {
+      unsubscribe();
+    };
   }, [onNavigate]);
 
   // Handle Admin Login
@@ -172,13 +182,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       );
 
       if (res.success) {
-        setAuthSuccess('Password successfully reset! You can now log in with your new password.');
+        setAuthSuccess('Password reset link sent to your registered email! Please check your inbox.');
         setAuthView('login');
         setAuthPassword('');
         setAuthConfirmPassword('');
         setAuthSecurityPin('');
       } else {
-        setAuthError(res.error || 'Recovery failed. Verify your email and PIN.');
+        setAuthError(res.error || 'Password reset request failed. Please check your email.');
       }
     } catch {
       setAuthError('Failed to complete recovery.');

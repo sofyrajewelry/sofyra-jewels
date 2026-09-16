@@ -175,11 +175,30 @@ export default function App() {
     storageService.fetchReviews().then(revs => {
       if (revs && revs.length > 0) setReviews(revs);
     });
-    adminAuthService.init().then(auth => {
-      if (!auth.authenticated && currentPage === 'admin') {
+    const unsubscribe = adminAuthService.subscribe((authed) => {
+      if (authed && currentPage === 'auth') {
+        handleNavigate('admin');
+      } else if (!authed && currentPage === 'admin') {
         handleNavigate('auth');
       }
     });
+
+    adminAuthService.init().then(auth => {
+      if (auth.authenticated) {
+        const saved = sessionStorage.getItem('sofyra_current_page');
+        const searchParams = new URLSearchParams(window.location.search);
+        const isQueryAdmin = searchParams.has('admin') || searchParams.get('page') === 'admin';
+        if (saved === 'admin' || isQueryAdmin || currentPage === 'auth') {
+          handleNavigate('admin');
+        }
+      } else if (!auth.authenticated && currentPage === 'admin') {
+        handleNavigate('auth');
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Sync products when modified in Admin

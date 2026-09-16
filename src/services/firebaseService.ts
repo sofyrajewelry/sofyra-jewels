@@ -4,6 +4,7 @@ import {
   collection,
   getDocs,
   getDoc,
+  getDocFromServer,
   doc,
   setDoc,
   deleteDoc,
@@ -27,6 +28,7 @@ import { CategoryItem, Product, HomepageContent } from '../types';
 export interface FirebaseAuthResult {
   success: boolean;
   user?: { uid: string; email: string; role: 'admin' };
+  token?: string;
   error?: string;
   isExistingUser?: boolean;
 }
@@ -52,15 +54,58 @@ export const initFirebase = (): {
     } else {
       appInstance = getApp();
     }
-    dbInstance = getFirestore(appInstance);
+    dbInstance = firebaseConfig.firestoreDatabaseId
+      ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(appInstance);
     storageInstance = getStorage(appInstance);
     authInstance = getAuth(appInstance);
+
+    // Validate connection to Firestore as mandated by skill
+    if (dbInstance) {
+      getDocFromServer(doc(dbInstance, 'test', 'connection')).catch((err) => {
+        if (err instanceof Error && err.message.includes('the client is offline')) {
+          console.error('[SOFYRA Firebase] Please check your Firebase configuration.');
+        }
+      });
+    }
+
     return { app: appInstance, db: dbInstance, storage: storageInstance, auth: authInstance };
   } catch (error) {
     console.warn('[SOFYRA Firebase] Initialization skipped or error:', error);
     return { app: null, db: null, storage: null, auth: null };
   }
 };
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const auth = getFirebaseAuthInstance();
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
+      tenantId: auth?.currentUser?.tenantId,
+      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export const getFirebaseDb = (): Firestore | null => {
   if (!dbInstance) initFirebase();
@@ -383,13 +428,15 @@ export const registerAdminWithFirebaseAuth = async (
       }
     }
 
+    const token = await user.getIdToken();
     return {
       success: true,
       user: {
         uid: user.uid,
         email: cleanEmail,
         role: 'admin'
-      }
+      },
+      token
     };
   } catch (err: any) {
     const code = err?.code || '';
@@ -416,6 +463,7 @@ export const registerAdminWithFirebaseAuth = async (
           } catch {}
         }
 
+        const token = await user.getIdToken();
         return {
           success: true,
           user: {
@@ -423,6 +471,7 @@ export const registerAdminWithFirebaseAuth = async (
             email: cleanEmail,
             role: 'admin'
           },
+          token,
           isExistingUser: true
         };
       } catch (signInErr: any) {
@@ -518,9 +567,11 @@ export const loginAdminWithFirebaseAuth = async (
       } catch {}
     }
 
+    const token = await user.getIdToken();
     return {
       success: true,
-      user: { uid: user.uid, email: cleanEmail, role: 'admin' }
+      user: { uid: user.uid, email: cleanEmail, role: 'admin' },
+      token
     };
   } catch (err: any) {
     const code = err?.code || '';

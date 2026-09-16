@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'sofyrastore@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Public product categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Public product catalog
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Site content (homepage editorial, about, site settings, admin config)
+    match /siteContent/{contentId} {
+      allow read: if true;
+      allow write: if isAdmin() || (
+        contentId == 'adminConfig' &&
+        isSignedIn() &&
+        (!exists(/databases/$(database)/documents/siteContent/adminConfig) ||
+         get(/databases/$(database)/documents/siteContent/adminConfig).data.hasAdmin != true)
+      );
+    }
+
+    // Administrator profile and authorization
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow write: if isSignedIn() && (
+        request.auth.uid == adminId ||
+        isAdmin() ||
+        !exists(/databases/$(database)/documents/siteContent/adminConfig) ||
+        get(/databases/$(database)/documents/siteContent/adminConfig).data.hasAdmin != true
+      );
+    }
+  }
+}
