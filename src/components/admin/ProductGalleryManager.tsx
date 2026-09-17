@@ -6,12 +6,14 @@ interface ProductGalleryManagerProps {
   images: string[];
   onChange: (newImages: string[]) => void;
   productName?: string;
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
 export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
   images,
   onChange,
-  productName
+  productName,
+  onUploadingChange
 }) => {
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const singleReplaceRef = useRef<HTMLInputElement>(null);
@@ -21,6 +23,7 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; filename?: string } | null>(null);
   const [uploadFeedback, setUploadFeedback] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -29,54 +32,72 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
     setTimeout(() => setUploadFeedback(null), 4000);
   };
 
-  // Client-side image compression: resizes large photos before uploading
-  const compressImageFile = (file: File): Promise<string> => {
+  // High-performance client-side image compression: native canvas.toBlob for fast uploads
+  const compressImageToBlob = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) {
-        reject(new Error(`"${file.name}" is not an image.`));
+        reject(new Error(`"${file.name}" is not a valid image file.`));
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX_DIM = 1400;
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > MAX_DIM) {
-              height = Math.round((height * MAX_DIM) / width);
-              width = MAX_DIM;
-            }
-          } else {
-            if (height > MAX_DIM) {
-              width = Math.round((width * MAX_DIM) / height);
-              height = MAX_DIM;
-            }
+
+      // If already a small, optimized web image (< 350KB), skip canvas re-compression
+      if (file.size < 350 * 1024 && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
+        resolve(file);
+        return;
+      }
+
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const MAX_DIM = 1400;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.88));
-          } else {
-            resolve(event.target?.result as string);
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
           }
-        };
-        img.onerror = () => reject(new Error('Failed to read image data.'));
-        img.src = event.target?.result as string;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        } else {
+          resolve(file);
+        }
       };
-      reader.onerror = () => reject(new Error(`Failed to read file "${file.name}".`));
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error(`Failed to process image data for "${file.name}".`));
+      };
+      img.src = objectUrl;
     });
   };
 
-  // Upload file to server and retrieve permanent persistent URL
+  // Upload file to server/Firebase and retrieve permanent persistent URL
   const processAndUploadFile = async (file: File): Promise<string> => {
-    const compressedDataUrl = await compressImageFile(file);
-    const uploadRes = await apiClient.uploadImage(compressedDataUrl, file.name);
+    const compressedBlob = await compressImageToBlob(file);
+    const uploadRes = await apiClient.uploadImage(compressedBlob, file.name);
 
     if (uploadRes.success && uploadRes.url) {
       return uploadRes.url;
@@ -85,30 +106,52 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
     throw new Error(uploadRes.error || `Upload failed for ${file.name}`);
   };
 
-  // Handle multi-file selection from user device
+  // Handle multi-file selection from user device with CONCURRENT (parallel) uploads
   const handleMultiFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileList: File[] = Array.from(files);
     setIsUploading(true);
+    onUploadingChange?.(true);
     setUploadError(null);
+    setUploadProgress({ current: 0, total: fileList.length });
+
     try {
-      const fileList: File[] = Array.from(files);
-      const uploadedUrls: string[] = [];
-      const errors: string[] = [];
+      let completedCount = 0;
 
-      for (const f of fileList) {
+      // CONCURRENT UPLOADS via Promise.all to avoid slow sequential bottlenecks
+      const uploadPromises = fileList.map(async (file) => {
         try {
-          const url = await processAndUploadFile(f);
-          uploadedUrls.push(url);
+          const url = await processAndUploadFile(file);
+          completedCount++;
+          setUploadProgress({ current: completedCount, total: fileList.length });
+          return { success: true, url, name: file.name };
         } catch (err: any) {
-          errors.push(err.message || `Failed to upload ${f.name}`);
+          completedCount++;
+          setUploadProgress({ current: completedCount, total: fileList.length });
+          return {
+            success: false,
+            error: err.message || `Failed to upload "${file.name}"`,
+            name: file.name
+          };
         }
-      }
+      });
 
-      if (uploadedUrls.length > 0) {
-        onChange([...images, ...uploadedUrls]);
-        showNotification(`Saved ${uploadedUrls.length} photo(s) to permanent product storage.`);
+      const results = await Promise.all(uploadPromises);
+
+      const successfulUrls = results
+        .filter((r) => r.success && r.url)
+        .map((r) => r.url as string);
+
+      const errors = results
+        .filter((r) => !r.success && r.error)
+        .map((r) => r.error as string);
+
+      // Preserve all existing images and append newly uploaded permanent URLs
+      if (successfulUrls.length > 0) {
+        onChange([...images, ...successfulUrls]);
+        showNotification(`Saved ${successfulUrls.length} photo(s) to permanent product storage.`);
       }
 
       if (errors.length > 0) {
@@ -118,6 +161,8 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
       setUploadError(err.message || 'Failed to process images.');
     } finally {
       setIsUploading(false);
+      onUploadingChange?.(false);
+      setUploadProgress(null);
       if (multiFileInputRef.current) {
         multiFileInputRef.current.value = '';
       }
@@ -130,16 +175,20 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
     if (!file) return;
 
     setIsUploading(true);
+    onUploadingChange?.(true);
     setUploadError(null);
+    setUploadProgress({ current: 0, total: 1, filename: file.name });
     try {
       const uploadedUrl = await processAndUploadFile(file);
-      // Put at index 0 as cover
+      // Put at index 0 as cover, preserving all existing images
       onChange([uploadedUrl, ...images]);
       showNotification('New photo uploaded to permanent storage and set as PRIMARY MAIN IMAGE.');
     } catch (err: any) {
       setUploadError(err.message || 'Failed to upload primary image.');
     } finally {
       setIsUploading(false);
+      onUploadingChange?.(false);
+      setUploadProgress(null);
       if (primaryUploadRef.current) {
         primaryUploadRef.current.value = '';
       }
@@ -152,7 +201,9 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
     if (!file || replaceIndex === null) return;
 
     setIsUploading(true);
+    onUploadingChange?.(true);
     setUploadError(null);
+    setUploadProgress({ current: 0, total: 1, filename: file.name });
     try {
       const uploadedUrl = await processAndUploadFile(file);
       const updated = [...images];
@@ -167,6 +218,8 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
       setUploadError(err.message || 'Failed to replace image.');
     } finally {
       setIsUploading(false);
+      onUploadingChange?.(false);
+      setUploadProgress(null);
       setReplaceIndex(null);
       if (singleReplaceRef.current) {
         singleReplaceRef.current.value = '';
@@ -250,8 +303,15 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
               Product Images & Gallery ({images.length} photos)
             </h4>
             {isUploading && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
-                <RefreshCw className="w-3 h-3 animate-spin" /> Uploading...
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 border border-amber-200 animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin text-amber-600" />
+                <span>
+                  {uploadProgress && uploadProgress.total > 1
+                    ? `Uploading photos (${uploadProgress.current} of ${uploadProgress.total} completed)...`
+                    : uploadProgress?.filename
+                    ? `Uploading "${uploadProgress.filename}"...`
+                    : 'Uploading photo to permanent storage...'}
+                </span>
               </span>
             )}
           </div>
@@ -266,7 +326,7 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
             type="button"
             disabled={isUploading}
             onClick={() => primaryUploadRef.current?.click()}
-            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black text-[11px] tracking-wider uppercase font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black text-[11px] tracking-wider uppercase font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
             title="Upload a new photo directly as the primary image"
           >
             <Star className="w-3 h-3 fill-black" />
@@ -277,13 +337,23 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
             type="button"
             disabled={isUploading}
             onClick={() => multiFileInputRef.current?.click()}
-            className="px-3 py-1.5 bg-black text-white hover:bg-stone-800 text-[11px] tracking-wider uppercase font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="px-3 py-1.5 bg-black text-white hover:bg-stone-800 text-[11px] tracking-wider uppercase font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
           >
             <Upload className="w-3 h-3" />
             <span>Add Photos</span>
           </button>
         </div>
       </div>
+
+      {/* Upload Progress Bar */}
+      {isUploading && uploadProgress && uploadProgress.total > 1 && (
+        <div className="w-full bg-stone-200 h-1.5 overflow-hidden rounded-xs">
+          <div
+            className="bg-black h-full transition-all duration-300 ease-out"
+            style={{ width: `${Math.max(5, Math.round((uploadProgress.current / uploadProgress.total) * 100))}%` }}
+          />
+        </div>
+      )}
 
       {/* Notification Toast */}
       {uploadFeedback && (

@@ -315,7 +315,11 @@ export const storageService = {
     }
 
     // Save to Firestore
-    saveProductToFirestore(product).catch(console.warn);
+    try {
+      await saveProductToFirestore(product);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Error saving to Firestore:', err);
+    }
 
     await this.saveAllProducts(products);
     return product;

@@ -158,6 +158,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [quickImageProduct, setQuickImageProduct] = useState<Product | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [isGalleryUploading, setIsGalleryUploading] = useState(false);
+  const [isQuickUploading, setIsQuickUploading] = useState(false);
   const [productForm, setProductForm] = useState<{
     name: string;
     subtitle: string;
@@ -2447,6 +2449,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   images={productForm.images}
                   onChange={(newImages) => setProductForm({ ...productForm, images: newImages })}
                   productName={productForm.name}
+                  onUploadingChange={setIsGalleryUploading}
                 />
               </div>
 
@@ -2531,11 +2534,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingProduct}
+                  disabled={isSavingProduct || isGalleryUploading}
                   className="px-7 py-2.5 bg-black text-white hover:bg-stone-800 uppercase tracking-wider font-semibold cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  {isSavingProduct && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>{isSavingProduct ? 'Saving to Database...' : 'Save Piece & Photos'}</span>
+                  {(isSavingProduct || isGalleryUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>
+                    {isSavingProduct
+                      ? 'Saving to Database...'
+                      : isGalleryUploading
+                      ? 'Uploading Photos...'
+                      : 'Save Piece & Photos'}
+                  </span>
                 </button>
               </div>
 
@@ -2574,6 +2583,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               images={quickImageProduct.images || []}
               onChange={handleUpdateQuickGallery}
               productName={quickImageProduct.name}
+              onUploadingChange={setIsQuickUploading}
             />
 
             <div className="pt-4 border-t border-stone-200 flex items-center justify-between">
@@ -2590,10 +2600,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               </div>
               <button
                 type="button"
+                disabled={isQuickUploading}
                 onClick={() => setQuickImageProduct(null)}
-                className="px-6 py-2 bg-black text-white hover:bg-stone-800 text-xs uppercase tracking-wider font-semibold cursor-pointer transition-colors"
+                className="px-6 py-2 bg-black text-white hover:bg-stone-800 text-xs uppercase tracking-wider font-semibold cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                Done
+                {isQuickUploading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isQuickUploading ? 'Uploading...' : 'Done'}</span>
               </button>
             </div>
           </div>

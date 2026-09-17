@@ -29,11 +29,11 @@ export const apiClient = {
   },
 
   // 1. Permanent Image Upload to Firebase Storage or /uploads/...
-  async uploadImage(base64OrDataUrl: string, filename?: string): Promise<{ success: boolean; url?: string; error?: string }> {
+  async uploadImage(base64OrDataUrlOrBlob: string | Blob, filename?: string): Promise<{ success: boolean; url?: string; error?: string }> {
     // If Firebase is configured, attempt upload to Firebase Storage
     if (isFirebaseConfigured()) {
       try {
-        const firebaseUrl = await uploadImageToFirebaseStorage(base64OrDataUrl, filename || 'image.jpg');
+        const firebaseUrl = await uploadImageToFirebaseStorage(base64OrDataUrlOrBlob, filename || 'image.jpg');
         if (firebaseUrl) {
           return { success: true, url: firebaseUrl };
         }
@@ -43,6 +43,18 @@ export const apiClient = {
     }
 
     try {
+      let imageString: string;
+      if (typeof base64OrDataUrlOrBlob !== 'string') {
+        imageString = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Failed to convert image blob for upload'));
+          reader.readAsDataURL(base64OrDataUrlOrBlob);
+        });
+      } else {
+        imageString = base64OrDataUrlOrBlob;
+      }
+
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: {
@@ -50,16 +62,12 @@ export const apiClient = {
           ...getAuthHeader()
         },
         body: JSON.stringify({
-          image: base64OrDataUrl,
+          image: imageString,
           filename: filename || 'image'
         })
       });
 
       if (!res.ok) {
-        // If /api/upload is not reachable (e.g. static Cloudflare deployment)
-        if (typeof base64OrDataUrl === 'string' && base64OrDataUrl.startsWith('data:image/')) {
-          return { success: true, url: base64OrDataUrl };
-        }
         const errData = await res.json().catch(() => ({}));
         return { success: false, error: errData.error || 'Upload failed' };
       }
@@ -67,9 +75,6 @@ export const apiClient = {
       const data = await res.json();
       return { success: true, url: data.url };
     } catch (e: any) {
-      if (typeof base64OrDataUrl === 'string' && base64OrDataUrl.startsWith('data:image/')) {
-        return { success: true, url: base64OrDataUrl };
-      }
       console.error('API uploadImage network error:', e);
       return { success: false, error: e.message || 'Network error during image upload' };
     }

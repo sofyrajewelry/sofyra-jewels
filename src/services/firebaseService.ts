@@ -285,16 +285,22 @@ export const uploadImageToFirebaseStorage = async (
 
     if (typeof dataUrlOrBlob === 'string') {
       if (dataUrlOrBlob.startsWith('data:')) {
-        const arr = dataUrlOrBlob.split(',');
-        const mimeMatch = arr[0].match(/:(.*?);/);
-        if (mimeMatch) mimeType = mimeMatch[1];
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
+        try {
+          const res = await fetch(dataUrlOrBlob);
+          blobToUpload = await res.blob();
+          if (blobToUpload.type) mimeType = blobToUpload.type;
+        } catch {
+          const arr = dataUrlOrBlob.split(',');
+          const mimeMatch = arr[0].match(/:(.*?);/);
+          if (mimeMatch) mimeType = mimeMatch[1];
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          blobToUpload = new Blob([u8arr], { type: mimeType });
         }
-        blobToUpload = new Blob([u8arr], { type: mimeType });
       } else {
         // Raw base64 string
         const cleanBase64 = dataUrlOrBlob.replace(/\s/g, '');
@@ -320,7 +326,7 @@ export const uploadImageToFirebaseStorage = async (
     else if (mimeType.includes('svg')) ext = 'svg';
 
     const cleanName = (fileName || 'image').replace(/[^a-zA-Z0-9.-]/g, '_').replace(/\.[^/.]+$/, '');
-    const uniquePath = `uploads/${Date.now()}-${cleanName}.${ext}`;
+    const uniquePath = `products/${Date.now()}-${cleanName}.${ext}`;
 
     const metadata = {
       contentType: mimeType,
@@ -334,7 +340,7 @@ export const uploadImageToFirebaseStorage = async (
         return await getDownloadURL(snapshot.ref);
       })();
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase Storage upload timed out after 10s')), 10000)
+        setTimeout(() => reject(new Error('Firebase Storage upload timed out after 25s')), 25000)
       );
       return await Promise.race([uploadPromise, timeoutPromise]);
     };
