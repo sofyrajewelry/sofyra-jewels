@@ -236,8 +236,17 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
     const docRef = doc(db, 'products', product.id);
     const cleanData = JSON.parse(JSON.stringify(product));
     delete cleanData.subcategory; // No subcategories
-    await setDoc(docRef, cleanData, { merge: true });
-    return true;
+
+    // Bound with a 3.5s timeout so hanging or offline Firestore never stalls UI product saving
+    const savePromise = setDoc(docRef, cleanData, { merge: true }).then(() => true);
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        console.warn('[SOFYRA Firebase] Firestore write timed out after 3.5s');
+        resolve(false);
+      }, 3500);
+    });
+
+    return await Promise.race([savePromise, timeoutPromise]);
   } catch (err) {
     console.warn('[SOFYRA Firebase] Error saving product to Firestore:', err);
     return false;
@@ -250,8 +259,11 @@ export const deleteProductFromFirestore = async (productId: string): Promise<boo
 
   try {
     const docRef = doc(db, 'products', productId);
-    await deleteDoc(docRef);
-    return true;
+    const deletePromise = deleteDoc(docRef).then(() => true);
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      setTimeout(() => resolve(false), 3000);
+    });
+    return await Promise.race([deletePromise, timeoutPromise]);
   } catch (err) {
     console.warn('[SOFYRA Firebase] Error deleting product from Firestore:', err);
     return false;
@@ -333,20 +345,20 @@ export const uploadImageToFirebaseStorage = async (
       cacheControl: 'public, max-age=31536000'
     };
 
-    const uploadWithTimeout = async (targetStorage: FirebaseStorage): Promise<string> => {
+    const uploadWithTimeout = async (targetStorage: FirebaseStorage, timeoutMs: number = 3500): Promise<string> => {
       const storageRef = ref(targetStorage, uniquePath);
       const uploadPromise = (async () => {
         const snapshot = await uploadBytes(storageRef, blobToUpload, metadata);
         return await getDownloadURL(snapshot.ref);
       })();
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase Storage upload timed out after 25s')), 25000)
+        setTimeout(() => reject(new Error('Firebase Storage upload timed out')), timeoutMs)
       );
       return await Promise.race([uploadPromise, timeoutPromise]);
     };
 
     try {
-      return await uploadWithTimeout(storage);
+      return await uploadWithTimeout(storage, 3500);
     } catch (primaryErr) {
       console.warn('[SOFYRA Firebase] Primary bucket upload failed, trying alternate:', primaryErr);
       const app = getApps()[0] || appInstance;
@@ -361,7 +373,7 @@ export const uploadImageToFirebaseStorage = async (
         if (altBucket && altBucket !== currentBucket) {
           try {
             const altStorage = getStorage(app, `gs://${altBucket}`);
-            return await uploadWithTimeout(altStorage);
+            return await uploadWithTimeout(altStorage, 2500);
           } catch (altErr) {
             console.warn('[SOFYRA Firebase] Alternate bucket upload also failed:', altErr);
           }

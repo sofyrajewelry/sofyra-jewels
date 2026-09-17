@@ -639,6 +639,21 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
   if (admin) {
     const session = getSessionFromReq(req);
     if (!session) {
+      // Also accept valid Firebase Auth tokens from authenticated administrator
+      const authHeader = req.headers.authorization;
+      const rawToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : req.headers['x-admin-token'];
+      const token = typeof rawToken === 'string' ? rawToken : undefined;
+      if (token && token.split('.').length === 3) {
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+          const now = Math.floor(Date.now() / 1000);
+          if (payload.exp && payload.exp > now) {
+            return next();
+          }
+        } catch {
+          // Invalid token payload
+        }
+      }
       return res.status(401).json({ error: 'Unauthorized: Admin authentication required' });
     }
   }

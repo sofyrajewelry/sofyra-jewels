@@ -314,14 +314,19 @@ export const storageService = {
       products.unshift({ ...product });
     }
 
-    // Save to Firestore
+    // 1. Immediately persist to durable backend database and local cache
+    const saved = await this.saveAllProducts(products);
+    if (!saved) {
+      console.warn('[SOFYRA Storage] Backend save returned false, but local cache was updated.');
+    }
+
+    // 2. Synchronize to Firestore with safe timeout so it never blocks or hangs
     try {
       await saveProductToFirestore(product);
     } catch (err) {
       console.warn('[SOFYRA Storage] Error saving to Firestore:', err);
     }
 
-    await this.saveAllProducts(products);
     return product;
   },
 

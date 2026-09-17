@@ -69,7 +69,8 @@ export const apiClient = {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        return { success: false, error: errData.error || 'Upload failed' };
+        const detailedError = errData.error || errData.message || (res.status === 401 ? 'Administrator authentication required' : `Server error (HTTP ${res.status})`);
+        return { success: false, error: detailedError };
       }
 
       const data = await res.json();
