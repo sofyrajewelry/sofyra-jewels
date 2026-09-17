@@ -94,9 +94,10 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate image type
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file (JPEG, PNG, WEBP, etc.)');
+    // Validate image type - accept any image MIME type or valid image extension
+    const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|gif|svg|bmp|heic|heif)$/i.test(file.name);
+    if (!isImage && file.type) {
+      alert('Please select an image file (JPEG, PNG, WEBP, etc.)');
       return;
     }
 
@@ -107,7 +108,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       // 1. Compress image for mobile/desktop performance
       const compressedDataUrl = await compressImageFile(file);
       if (!compressedDataUrl) {
-        throw new Error('Could not read image file');
+        throw new Error('Could not read image file from device');
       }
 
       // 2. Upload to persistent server storage
@@ -123,11 +124,9 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       setUploadError(err.message || 'Image upload failed due to network error.');
     } finally {
       setIsUploading(false);
-    }
-
-    // Reset input so re-selecting same file triggers change
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 

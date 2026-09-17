@@ -704,6 +704,10 @@ app.post('/api/upload', requireAdmin, (req, res) => {
     else if (mimeType.includes('webp')) ext = 'webp';
     else if (mimeType.includes('gif')) ext = 'gif';
     else if (mimeType.includes('svg')) ext = 'svg';
+    else if (filename && /\.(png|jpe?g|webp|gif|svg)$/i.test(filename)) {
+      const match = filename.match(/\.(png|jpe?g|webp|gif|svg)$/i);
+      if (match) ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+    }
 
     const safeName = (filename ? filename.replace(/[^a-zA-Z0-9_-]/g, '') : 'img')
       .slice(0, 20) || 'img';
@@ -759,10 +763,17 @@ app.put('/api/homepage', requireAdmin, (req, res) => {
   }
 
   const store = readStore();
+  const currentHp = store.homepage || {};
   store.homepage = {
-    ...store.homepage,
+    ...currentHp,
     ...updatedHomepage,
-    advantagesSection: updatedHomepage.advantagesSection || store.homepage.advantagesSection || DEFAULT_ADVANTAGES_SECTION
+    hero: { ...(currentHp.hero || {}), ...(updatedHomepage.hero || {}) },
+    categories: { ...(currentHp.categories || {}), ...(updatedHomepage.categories || {}) },
+    editorial: { ...(currentHp.editorial || {}), ...(updatedHomepage.editorial || {}) },
+    advantages: { ...(currentHp.advantages || {}), ...(updatedHomepage.advantages || {}) },
+    advantagesSection: updatedHomepage.advantagesSection || currentHp.advantagesSection || DEFAULT_ADVANTAGES_SECTION,
+    aboutSofyra: { ...(currentHp.aboutSofyra || {}), ...(updatedHomepage.aboutSofyra || {}) },
+    contactPage: { ...(currentHp.contactPage || {}), ...(updatedHomepage.contactPage || {}) }
   };
   writeStore(store);
 
@@ -776,10 +787,17 @@ app.post('/api/homepage', requireAdmin, (req, res) => {
   }
 
   const store = readStore();
+  const currentHp = store.homepage || {};
   store.homepage = {
-    ...store.homepage,
+    ...currentHp,
     ...updatedHomepage,
-    advantagesSection: updatedHomepage.advantagesSection || store.homepage.advantagesSection || DEFAULT_ADVANTAGES_SECTION
+    hero: { ...(currentHp.hero || {}), ...(updatedHomepage.hero || {}) },
+    categories: { ...(currentHp.categories || {}), ...(updatedHomepage.categories || {}) },
+    editorial: { ...(currentHp.editorial || {}), ...(updatedHomepage.editorial || {}) },
+    advantages: { ...(currentHp.advantages || {}), ...(updatedHomepage.advantages || {}) },
+    advantagesSection: updatedHomepage.advantagesSection || currentHp.advantagesSection || DEFAULT_ADVANTAGES_SECTION,
+    aboutSofyra: { ...(currentHp.aboutSofyra || {}), ...(updatedHomepage.aboutSofyra || {}) },
+    contactPage: { ...(currentHp.contactPage || {}), ...(updatedHomepage.contactPage || {}) }
   };
   writeStore(store);
 

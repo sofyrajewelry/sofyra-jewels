@@ -196,8 +196,14 @@ export default function App() {
       }
     });
 
+    const onHomepageUpdated = (e: any) => {
+      if (e.detail) setHomepageContent(e.detail);
+    };
+    window.addEventListener('sofyra:homepage-updated', onHomepageUpdated);
+
     return () => {
       unsubscribe();
+      window.removeEventListener('sofyra:homepage-updated', onHomepageUpdated);
     };
   }, []);
 

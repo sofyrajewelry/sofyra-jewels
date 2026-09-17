@@ -2,17 +2,6 @@ import { Product, Order, CustomerReview, ProductCategory, HomepageContent, Categ
 import { INITIAL_PRODUCTS, INITIAL_REVIEWS, DEFAULT_HOMEPAGE_CONTENT, DEFAULT_CATEGORIES, DEFAULT_WORN_BY_YOU, DEFAULT_CONTACT_INFO, DEFAULT_SITE_SETTINGS } from '../data/initialProducts';
 import { adminAuthService } from './adminAuthService';
 import { apiClient } from './apiClient';
-import {
-  fetchCategoriesFromFirestore,
-  saveCategoryToFirestore,
-  saveAllCategoriesToFirestore,
-  deleteCategoryFromFirestore,
-  fetchProductsFromFirestore,
-  saveProductToFirestore,
-  deleteProductFromFirestore,
-  fetchHomepageFromFirestore,
-  saveHomepageToFirestore
-} from './firebaseService';
 
 const PRODUCTS_KEY = 'sofyra_products_v1';
 const ORDERS_KEY = 'sofyra_orders_v1';
@@ -123,34 +112,9 @@ export const storageService = {
   },
 
   // -------------------------------------------------------------------------
-  // HOMEPAGE CONTENT (Fully Persistent via Firestore, Server API & Local Cache)
+  // HOMEPAGE CONTENT (Fully Persistent via Server API & Local Cache)
   // -------------------------------------------------------------------------
   async fetchHomepageContent(): Promise<HomepageContent> {
-    // 1. Try Firestore first
-    try {
-      const firestoreData = await fetchHomepageFromFirestore();
-      if (firestoreData && firestoreData.hero) {
-        cachedHomepageContent = {
-          ...DEFAULT_HOMEPAGE_CONTENT,
-          ...firestoreData,
-          hero: { ...DEFAULT_HOMEPAGE_CONTENT.hero, ...(firestoreData.hero || {}) },
-          categories: { ...DEFAULT_HOMEPAGE_CONTENT.categories, ...(firestoreData.categories || {}) },
-          editorial: { ...DEFAULT_HOMEPAGE_CONTENT.editorial, ...(firestoreData.editorial || {}) },
-          advantagesSection: firestoreData.advantagesSection || DEFAULT_HOMEPAGE_CONTENT.advantagesSection,
-          advantages: { ...DEFAULT_HOMEPAGE_CONTENT.advantages, ...(firestoreData.advantages || {}) },
-          contactPage: { ...DEFAULT_HOMEPAGE_CONTENT.contactPage, ...(firestoreData.contactPage || {}) },
-          aboutSofyra: { ...DEFAULT_HOMEPAGE_CONTENT.aboutSofyra, ...(firestoreData.aboutSofyra || {}) }
-        };
-        try {
-          localStorage.setItem(HOMEPAGE_KEY, JSON.stringify(cachedHomepageContent));
-        } catch {}
-        return cachedHomepageContent;
-      }
-    } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Firestore homepage fetch error, falling back to server API:', fbErr);
-    }
-
-    // 2. Fallback to server API
     try {
       const serverData = await apiClient.getHomepage();
       if (serverData && serverData.hero) {
@@ -215,18 +179,16 @@ export const storageService = {
     }
 
     // 2. Persist to server backend database
-    try {
-      await apiClient.saveHomepage(content);
-    } catch (e) {
-      console.error('Failed to persist homepage to server:', e);
+    const saveRes = await apiClient.saveHomepage(content);
+    if (!saveRes.success) {
+      console.error('Failed to persist homepage to server:', saveRes.error);
+      throw new Error(saveRes.error || 'Failed to save homepage content to server');
     }
 
-    // 3. Persist to Firestore
+    // 3. Dispatch event for storefront components to update immediately
     try {
-      await saveHomepageToFirestore(content);
-    } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Failed to persist homepage to Firestore:', fbErr);
-    }
+      window.dispatchEvent(new CustomEvent('sofyra:homepage-updated', { detail: content }));
+    } catch {}
 
     return content;
   },
@@ -244,20 +206,6 @@ export const storageService = {
   // PRODUCTS
   // -------------------------------------------------------------------------
   async fetchProducts(): Promise<Product[]> {
-    // 1. Check Firestore first if configured
-    try {
-      const firestoreProducts = await fetchProductsFromFirestore();
-      if (Array.isArray(firestoreProducts) && firestoreProducts.length > 0) {
-        cachedProducts = firestoreProducts;
-        try {
-          localStorage.setItem(PRODUCTS_KEY, JSON.stringify(firestoreProducts));
-        } catch {}
-        return firestoreProducts;
-      }
-    } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Firestore fetch error, falling back to server API:', fbErr);
-    }
-
     try {
       const serverProducts = await apiClient.getProducts();
       if (Array.isArray(serverProducts) && serverProducts.length > 0) {
@@ -314,17 +262,10 @@ export const storageService = {
       products.unshift({ ...product });
     }
 
-    // 1. Immediately persist to durable backend database and local cache
+    // Persist to durable backend database and local cache
     const saved = await this.saveAllProducts(products);
     if (!saved) {
       console.warn('[SOFYRA Storage] Backend save returned false, but local cache was updated.');
-    }
-
-    // 2. Synchronize to Firestore with safe timeout so it never blocks or hangs
-    try {
-      await saveProductToFirestore(product);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Error saving to Firestore:', err);
     }
 
     return product;
@@ -332,8 +273,6 @@ export const storageService = {
 
   async deleteProduct(id: string): Promise<boolean> {
     this.assertAdminPermission('delete products');
-    deleteProductFromFirestore(id).catch(console.warn);
-
     const products = this.getProducts();
     const filtered = products.filter(p => p.id !== id);
     if (filtered.length !== products.length) {
@@ -669,20 +608,6 @@ export const storageService = {
   // CATEGORIES
   // -------------------------------------------------------------------------
   async fetchCategories(): Promise<CategoryHierarchyItem[]> {
-    // 1. Try Firestore first
-    try {
-      const firestoreCategories = await fetchCategoriesFromFirestore();
-      if (Array.isArray(firestoreCategories) && firestoreCategories.length > 0) {
-        cachedCategories = firestoreCategories;
-        try {
-          localStorage.setItem(CATEGORIES_KEY, JSON.stringify(firestoreCategories));
-        } catch {}
-        return firestoreCategories;
-      }
-    } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Firestore categories fetch error:', fbErr);
-    }
-
     try {
       const serverCategories = await apiClient.getCategories();
       if (Array.isArray(serverCategories) && serverCategories.length > 0) {
@@ -730,11 +655,11 @@ export const storageService = {
       console.error(e);
     }
 
-    // Save to Firestore
-    saveAllCategoriesToFirestore(categories).catch(console.warn);
-
     // Save to server
-    apiClient.saveCategories(categories).catch(console.error);
+    const res = await apiClient.saveCategories(categories);
+    if (!res.success) {
+      console.error('Failed to save categories to server:', res.error);
+    }
     return categories;
   },
 
@@ -748,14 +673,12 @@ export const storageService = {
       updated = [...all, category];
     }
 
-    saveCategoryToFirestore(category).catch(console.warn);
     await this.saveCategories(updated);
     return category;
   },
 
   async deleteCategory(categoryId: string): Promise<boolean> {
     this.assertAdminPermission('delete categories');
-    deleteCategoryFromFirestore(categoryId).catch(console.warn);
 
     const all = this.getCategories();
     const filtered = all.filter(c => c.id !== categoryId && c.slug !== categoryId);

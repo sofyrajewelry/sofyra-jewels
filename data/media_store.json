@@ -1,1 +1,18 @@
-{}
+{
+  "sofyra-testgif-1789649850930-9baa92a3.gif": {
+    "filename": "sofyra-testgif-1789649850930-9baa92a3.gif",
+    "contentType": "image/gif",
+    "size": 42,
+    "dataBase64": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+    "createdAt": "2026-09-17T12:57:30.931Z",
+    "originalName": "test.gif"
+  },
+  "sofyra-test-device-uploadpn-1789650309092-74402d39.png": {
+    "filename": "sofyra-test-device-uploadpn-1789650309092-74402d39.png",
+    "contentType": "image/png",
+    "size": 70,
+    "dataBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "createdAt": "2026-09-17T13:05:09.093Z",
+    "originalName": "test-device-upload.png"
+  }
+}
