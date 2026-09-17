@@ -96,7 +96,7 @@ export const apiClient = {
   async saveHomepage(content: HomepageContent): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/homepage', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
@@ -130,7 +130,7 @@ export const apiClient = {
   async saveProducts(products: Product[]): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/products', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
@@ -299,7 +299,7 @@ export const apiClient = {
   async saveCategories(categories: import('../types').CategoryHierarchyItem[]): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/categories', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
@@ -327,7 +327,7 @@ export const apiClient = {
   async saveWornByYou(items: import('../types').WornByYouItem[]): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/worn-by-you', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
@@ -384,7 +384,7 @@ export const apiClient = {
   async saveContactInfo(info: import('../types').ContactInfo): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/contact-info', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
@@ -412,7 +412,7 @@ export const apiClient = {
   async saveSiteSettings(settings: import('../types').SiteSettings): Promise<{ success: boolean; error?: string }> {
     try {
       const res = await fetch('/api/site-settings', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()

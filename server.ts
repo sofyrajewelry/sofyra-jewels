@@ -769,6 +769,23 @@ app.put('/api/homepage', requireAdmin, (req, res) => {
   res.json({ success: true, homepage: store.homepage });
 });
 
+app.post('/api/homepage', requireAdmin, (req, res) => {
+  const updatedHomepage = req.body;
+  if (!updatedHomepage || typeof updatedHomepage !== 'object') {
+    return res.status(400).json({ error: 'Invalid homepage content payload' });
+  }
+
+  const store = readStore();
+  store.homepage = {
+    ...store.homepage,
+    ...updatedHomepage,
+    advantagesSection: updatedHomepage.advantagesSection || store.homepage.advantagesSection || DEFAULT_ADVANTAGES_SECTION
+  };
+  writeStore(store);
+
+  res.json({ success: true, homepage: store.homepage });
+});
+
 // 3. Products
 app.get('/api/products', (req, res) => {
   const store = readStore();
@@ -776,6 +793,14 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/products', requireAdmin, (req, res) => {
+  // If array is passed, perform bulk save matching PUT /api/products
+  if (Array.isArray(req.body)) {
+    const store = readStore();
+    store.products = req.body;
+    writeStore(store);
+    return res.json({ success: true, products: store.products });
+  }
+
   const productData = req.body;
   if (!productData || !productData.name) {
     return res.status(400).json({ error: 'Product name is required' });
@@ -891,6 +916,14 @@ app.put('/api/categories', requireAdmin, (req, res) => {
 });
 
 app.post('/api/categories', requireAdmin, (req, res) => {
+  // If array is passed, perform bulk save matching PUT /api/categories
+  if (Array.isArray(req.body)) {
+    const store = readStore();
+    store.categories = req.body;
+    writeStore(store);
+    return res.json({ success: true, categories: store.categories });
+  }
+
   const newCat = req.body;
   if (!newCat || !newCat.name) {
     return res.status(400).json({ error: 'Category name is required' });
@@ -944,6 +977,14 @@ app.put('/api/worn-by-you', requireAdmin, (req, res) => {
 });
 
 app.post('/api/worn-by-you', requireAdmin, (req, res) => {
+  // If array is passed, perform bulk save matching PUT /api/worn-by-you
+  if (Array.isArray(req.body)) {
+    const store = readStore();
+    store.wornByYou = req.body;
+    writeStore(store);
+    return res.json({ success: true, wornByYou: store.wornByYou });
+  }
+
   const item = req.body;
   if (!item || !item.mediaUrl) {
     return res.status(400).json({ error: 'Media URL is required' });
@@ -995,6 +1036,19 @@ app.put('/api/contact-info', requireAdmin, (req, res) => {
   res.json({ success: true, contactInfo: store.contactInfo });
 });
 
+app.post('/api/contact-info', requireAdmin, (req, res) => {
+  const updates = req.body;
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({ error: 'Invalid contact info' });
+  }
+
+  const store = readStore();
+  store.contactInfo = { ...store.contactInfo, ...updates };
+  writeStore(store);
+
+  res.json({ success: true, contactInfo: store.contactInfo });
+});
+
 // 7. Site Settings (Why Sofyra, Money Back Guarantee, Accordions, Benefits Row)
 app.get('/api/site-settings', (req, res) => {
   const store = readStore();
@@ -1002,6 +1056,19 @@ app.get('/api/site-settings', (req, res) => {
 });
 
 app.put('/api/site-settings', requireAdmin, (req, res) => {
+  const updates = req.body;
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({ error: 'Invalid site settings' });
+  }
+
+  const store = readStore();
+  store.siteSettings = { ...store.siteSettings, ...updates };
+  writeStore(store);
+
+  res.json({ success: true, siteSettings: store.siteSettings });
+});
+
+app.post('/api/site-settings', requireAdmin, (req, res) => {
   const updates = req.body;
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Invalid site settings' });
