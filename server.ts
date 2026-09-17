@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { createServer as createViteServer } from 'vite';
 import {
   INITIAL_PRODUCTS,
@@ -661,18 +662,60 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
 }
 
 // ---------------------------------------------------------------------------
+// CLOUDFLARE R2 OBJECT STORAGE (S3-Compatible Client)
+// ---------------------------------------------------------------------------
+interface R2Config {
+  s3: S3Client;
+  bucket: string;
+  publicUrl?: string;
+}
+
+let r2ClientCache: R2Config | null = null;
+let lastR2EnvSignature = '';
+
+function getR2Config(): R2Config | null {
+  const accountId = process.env.R2_ACCOUNT_ID?.trim();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  const bucket = process.env.R2_BUCKET_NAME?.trim() || 'sofyraimages';
+  const publicUrl = process.env.R2_PUBLIC_URL?.trim().replace(/\/+$/, '');
+
+  if (!accountId || !accessKeyId || !secretAccessKey) {
+    return null;
+  }
+
+  const currentSignature = `${accountId}:${accessKeyId}:${bucket}:${publicUrl || ''}`;
+  if (r2ClientCache && lastR2EnvSignature === currentSignature) {
+    return r2ClientCache;
+  }
+
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId,
+      secretAccessKey
+    }
+  });
+
+  r2ClientCache = { s3, bucket, publicUrl };
+  lastR2EnvSignature = currentSignature;
+  return r2ClientCache;
+}
+
+// ---------------------------------------------------------------------------
 // REST API ROUTES
 // ---------------------------------------------------------------------------
 
-// 1. Image Upload Endpoint
-app.post('/api/upload', requireAdmin, (req, res) => {
+// 1. Image Upload Endpoint (Cloudflare R2 Object Storage)
+app.post('/api/upload', requireAdmin, async (req, res) => {
   try {
     const { image, filename } = req.body;
     if (!image || typeof image !== 'string') {
       return res.status(400).json({ error: 'Missing image data' });
     }
 
-    // Robustly extract base64 data and mime type without fragile single-line regex
+    // Robustly extract base64 data and mime type
     let mimeType = 'image/jpeg';
     let base64Data = image;
 
@@ -691,7 +734,7 @@ app.post('/api/upload', requireAdmin, (req, res) => {
       }
     }
 
-    // Clean any whitespace or linebreaks from base64 string
+    // Clean whitespace and line breaks from base64 string
     base64Data = base64Data.replace(/\s/g, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
@@ -711,42 +754,81 @@ app.post('/api/upload', requireAdmin, (req, res) => {
 
     const safeName = (filename ? filename.replace(/[^a-zA-Z0-9_-]/g, '') : 'img')
       .slice(0, 20) || 'img';
-    const generatedFilename = `sofyra-${safeName}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+    const uniqueKey = `products/sofyra-${safeName}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
 
-    // 1. Write to persistent DATA_UPLOADS_DIR
-    const dataFilePath = path.join(DATA_UPLOADS_DIR, generatedFilename);
-    fs.writeFileSync(dataFilePath, buffer);
+    const r2 = getR2Config();
 
-    // 2. Write to public/uploads
-    const publicFilePath = path.join(UPLOADS_DIR, generatedFilename);
-    fs.writeFileSync(publicFilePath, buffer);
+    if (r2) {
+      // Upload directly to Cloudflare R2 bucket sofyraimages
+      await r2.s3.send(
+        new PutObjectCommand({
+          Bucket: r2.bucket,
+          Key: uniqueKey,
+          Body: buffer,
+          ContentType: mimeType,
+          CacheControl: 'public, max-age=31536000, immutable'
+        })
+      );
 
-    // 3. Also sync to dist/uploads if dist exists (for production build preview)
-    const distUploadsDir = path.join(process.cwd(), 'dist', 'uploads');
-    if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
-      if (!fs.existsSync(distUploadsDir)) {
-        fs.mkdirSync(distUploadsDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(distUploadsDir, generatedFilename), buffer);
+      // Build permanent R2 reference/URL
+      const permanentUrl = r2.publicUrl ? `${r2.publicUrl}/${uniqueKey}` : `/api/r2/${uniqueKey}`;
+
+      // Newly uploaded images are NOT permanently stored on the server's local filesystem
+      return res.json({
+        success: true,
+        url: permanentUrl,
+        filename: uniqueKey,
+        storage: 'cloudflare-r2'
+      });
     }
 
-    // 4. Save to persistent media_store.json database record
-    const mediaStore = readMediaStore();
-    mediaStore[generatedFilename] = {
-      filename: generatedFilename,
-      contentType: mimeType,
-      size: buffer.length,
-      dataBase64: base64Data,
-      createdAt: new Date().toISOString(),
-      originalName: filename || generatedFilename
-    };
-    writeMediaStore(mediaStore);
-
-    const publicUrl = `/uploads/${generatedFilename}`;
-    return res.json({ success: true, url: publicUrl, filename: generatedFilename });
+    // If R2 credentials are not yet configured in server environment variables
+    return res.status(400).json({
+      error: 'Cloudflare R2 is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY in your server environment variables/secrets to upload images to sofyraimages.',
+      requiresR2Config: true
+    });
   } catch (err: any) {
     console.error('Image upload error:', err);
     return res.status(500).json({ error: err.message || 'Failed to process image upload' });
+  }
+});
+
+// Cloudflare R2 Direct Serving Proxy (for persistent access when custom domain is not yet active)
+app.get('/api/r2/:key(*)', async (req, res) => {
+  const r2 = getR2Config();
+  if (!r2) {
+    return res.status(503).json({ error: 'Cloudflare R2 storage is not configured' });
+  }
+
+  try {
+    const key = req.params.key;
+    const response = await r2.s3.send(
+      new GetObjectCommand({
+        Bucket: r2.bucket,
+        Key: key
+      })
+    );
+
+    if (response.ContentType) {
+      res.setHeader('Content-Type', response.ContentType);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+    const stream = response.Body as any;
+    if (stream && typeof stream.pipe === 'function') {
+      stream.pipe(res);
+    } else if (stream) {
+      const bytes = await stream.transformToByteArray();
+      res.send(Buffer.from(bytes));
+    } else {
+      res.status(404).send('Image not found in R2 bucket');
+    }
+  } catch (err: any) {
+    if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+      return res.status(404).send('Image not found in R2 bucket');
+    }
+    console.error('Error fetching image from R2:', err);
+    res.status(500).send('Error fetching image from R2');
   }
 });
 
@@ -1154,6 +1236,13 @@ app.put('/api/reviews', requireAdmin, (req, res) => {
 });
 
 app.post('/api/reviews', (req, res) => {
+  if (Array.isArray(req.body)) {
+    const store = readStore();
+    store.reviews = req.body;
+    writeStore(store);
+    return res.json({ success: true, reviews: store.reviews });
+  }
+
   const review = req.body;
   if (!review || !review.customerName) {
     return res.status(400).json({ error: 'Customer name is required' });

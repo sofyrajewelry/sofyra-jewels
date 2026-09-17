@@ -2,6 +2,11 @@ import { Product, Order, CustomerReview, ProductCategory, HomepageContent, Categ
 import { INITIAL_PRODUCTS, INITIAL_REVIEWS, DEFAULT_HOMEPAGE_CONTENT, DEFAULT_CATEGORIES, DEFAULT_WORN_BY_YOU, DEFAULT_CONTACT_INFO, DEFAULT_SITE_SETTINGS } from '../data/initialProducts';
 import { adminAuthService } from './adminAuthService';
 import { apiClient } from './apiClient';
+import {
+  saveProductToFirestore,
+  fetchProductsFromFirestore,
+  deleteProductFromFirestore
+} from './firebaseService';
 
 const PRODUCTS_KEY = 'sofyra_products_v1';
 const ORDERS_KEY = 'sofyra_orders_v1';
@@ -206,6 +211,21 @@ export const storageService = {
   // PRODUCTS
   // -------------------------------------------------------------------------
   async fetchProducts(): Promise<Product[]> {
+    // 1. Check existing Firestore products first (preserving existing data)
+    try {
+      const firestoreProducts = await fetchProductsFromFirestore();
+      if (Array.isArray(firestoreProducts) && firestoreProducts.length > 0) {
+        cachedProducts = firestoreProducts;
+        try {
+          localStorage.setItem(PRODUCTS_KEY, JSON.stringify(firestoreProducts));
+        } catch {}
+        return firestoreProducts;
+      }
+    } catch (fbErr) {
+      console.warn('[SOFYRA Storage] Firestore products read note:', fbErr);
+    }
+
+    // 2. Fall back to server API
     try {
       const serverProducts = await apiClient.getProducts();
       if (Array.isArray(serverProducts) && serverProducts.length > 0) {
@@ -262,10 +282,17 @@ export const storageService = {
       products.unshift({ ...product });
     }
 
-    // Persist to durable backend database and local cache
+    // 1. Persist to server backend database and local cache
     const saved = await this.saveAllProducts(products);
     if (!saved) {
       console.warn('[SOFYRA Storage] Backend save returned false, but local cache was updated.');
+    }
+
+    // 2. Store permanent R2 reference and product data in existing Firestore product structure
+    try {
+      await saveProductToFirestore(product);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Note on syncing product to Firestore:', err);
     }
 
     return product;
@@ -273,6 +300,9 @@ export const storageService = {
 
   async deleteProduct(id: string): Promise<boolean> {
     this.assertAdminPermission('delete products');
+    // Also remove from Firestore document structure if configured
+    deleteProductFromFirestore(id).catch(console.warn);
+
     const products = this.getProducts();
     const filtered = products.filter(p => p.id !== id);
     if (filtered.length !== products.length) {
