@@ -253,6 +253,31 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
   }
 };
 
+export const saveAllProductsToFirestore = async (products: Product[]): Promise<boolean> => {
+  const db = getFirebaseDb();
+  if (!db) return false;
+
+  try {
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < products.length; i += CHUNK_SIZE) {
+      const chunk = products.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach(prod => {
+        if (!prod || !prod.id) return;
+        const docRef = doc(db, 'products', prod.id);
+        const cleanData = JSON.parse(JSON.stringify(prod));
+        delete cleanData.subcategory;
+        batch.set(docRef, cleanData, { merge: true });
+      });
+      await batch.commit();
+    }
+    return true;
+  } catch (err) {
+    console.warn('[SOFYRA Firebase] Error saving all products to Firestore:', err);
+    return false;
+  }
+};
+
 export const deleteProductFromFirestore = async (productId: string): Promise<boolean> => {
   const db = getFirebaseDb();
   if (!db) return false;

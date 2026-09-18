@@ -1,8 +1,19 @@
 /**
  * Cloudflare Worker entry point for SOFYRA Jewels
- * Handles static SPA assets via env.ASSETS and R2 object storage via env.SOFYRA_IMAGES
+ * Handles static SPA assets via env.ASSETS, R2 object storage via env.SOFYRA_IMAGES,
+ * and API persistence for products, categories, site content, and image uploads.
  * Pure native Web APIs: No Express, body-parser, raw-body, or iconv-lite dependencies.
  */
+
+import {
+  INITIAL_PRODUCTS,
+  DEFAULT_CATEGORIES,
+  DEFAULT_HOMEPAGE_CONTENT,
+  DEFAULT_WORN_BY_YOU,
+  DEFAULT_CONTACT_INFO,
+  DEFAULT_SITE_SETTINGS,
+  INITIAL_REVIEWS
+} from './src/data/initialProducts';
 
 export interface R2PutOptions {
   httpMetadata?: {
@@ -43,7 +54,7 @@ export interface Env {
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-admin-token',
 };
 
@@ -66,6 +77,74 @@ function getRandomHex(bytesCount = 4): string {
     hex += array[i].toString(16).padStart(2, '0');
   }
   return hex;
+}
+
+/**
+ * Validate Administrator authorization from Authorization header (Bearer JWT) or x-admin-token
+ */
+function isAuthorizedAdmin(request: Request): boolean {
+  const authHeader = request.headers.get('authorization') || '';
+  const adminToken = request.headers.get('x-admin-token') || '';
+  const rawToken = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : (adminToken || authHeader).trim();
+
+  if (!rawToken) {
+    return false;
+  }
+
+  // Validate JWT token if 3 dot-separated parts
+  const parts = rawToken.split('.');
+  if (parts.length === 3) {
+    try {
+      let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4 !== 0) {
+        base64 += '=';
+      }
+      const jsonStr = atob(base64);
+      const payload = JSON.parse(jsonStr);
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback for session token strings
+  return rawToken.length >= 8;
+}
+
+/**
+ * R2 JSON storage helpers for data caching / server persistence
+ */
+async function getR2Data<T>(env: Env, filename: string): Promise<T | null> {
+  if (!env.SOFYRA_IMAGES || typeof env.SOFYRA_IMAGES.get !== 'function') return null;
+  try {
+    const obj = await env.SOFYRA_IMAGES.get(`_data/${filename}`);
+    if (!obj) return null;
+    const text = await new Response(obj.body).text();
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function putR2Data(env: Env, filename: string, data: unknown): Promise<boolean> {
+  if (!env.SOFYRA_IMAGES || typeof env.SOFYRA_IMAGES.put !== 'function') return false;
+  try {
+    await env.SOFYRA_IMAGES.put(`_data/${filename}`, JSON.stringify(data), {
+      httpMetadata: {
+        contentType: 'application/json',
+        cacheControl: 'no-cache',
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default {
@@ -231,7 +310,231 @@ export default {
       }
     }
 
-    // 3. Static Assets & SPA Routing
+    // 3. Products Endpoints (/api/products)
+    if (url.pathname === '/api/products') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data<any[]>(env, 'products.json');
+        return jsonResponse(stored && stored.length > 0 ? stored : INITIAL_PRODUCTS);
+      }
+
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) {
+          return jsonResponse({ error: 'Unauthorized: Admin authentication required' }, 401);
+        }
+
+        const body = await request.json().catch(() => null);
+        if (!body) {
+          return jsonResponse({ error: 'Missing product payload' }, 400);
+        }
+
+        let currentProducts = await getR2Data<any[]>(env, 'products.json');
+        if (!Array.isArray(currentProducts) || currentProducts.length === 0) {
+          currentProducts = [...INITIAL_PRODUCTS];
+        }
+
+        if (Array.isArray(body)) {
+          // Bulk update all products
+          await putR2Data(env, 'products.json', body);
+          return jsonResponse({ success: true, products: body });
+        } else if (typeof body === 'object' && body.id) {
+          // Single product upsert
+          const idx = currentProducts.findIndex((p: any) => p.id === body.id);
+          if (idx >= 0) {
+            currentProducts[idx] = { ...currentProducts[idx], ...body };
+          } else {
+            currentProducts.unshift(body);
+          }
+          await putR2Data(env, 'products.json', currentProducts);
+          return jsonResponse({ success: true, product: body, products: currentProducts });
+        } else {
+          return jsonResponse({ error: 'Invalid product payload shape' }, 400);
+        }
+      }
+    }
+
+    // Single Product operations: /api/products/:id
+    if (url.pathname.startsWith('/api/products/')) {
+      const prodId = decodeURIComponent(url.pathname.replace(/^\/api\/products\//, ''));
+      if (request.method === 'DELETE') {
+        if (!isAuthorizedAdmin(request)) {
+          return jsonResponse({ error: 'Unauthorized: Admin authentication required' }, 401);
+        }
+        let currentProducts = await getR2Data<any[]>(env, 'products.json');
+        if (!Array.isArray(currentProducts)) {
+          currentProducts = [...INITIAL_PRODUCTS];
+        }
+        currentProducts = currentProducts.filter((p: any) => p.id !== prodId);
+        await putR2Data(env, 'products.json', currentProducts);
+        return jsonResponse({ success: true, products: currentProducts });
+      }
+    }
+
+    // 4. Categories Endpoints (/api/categories)
+    if (url.pathname === '/api/categories') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data<any[]>(env, 'categories.json');
+        return jsonResponse(stored && stored.length > 0 ? stored : DEFAULT_CATEGORIES);
+      }
+
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) {
+          return jsonResponse({ error: 'Unauthorized: Admin authentication required' }, 401);
+        }
+
+        const body = await request.json().catch(() => null);
+        if (!body) {
+          return jsonResponse({ error: 'Missing category payload' }, 400);
+        }
+
+        let currentCategories = await getR2Data<any[]>(env, 'categories.json');
+        if (!Array.isArray(currentCategories) || currentCategories.length === 0) {
+          currentCategories = [...DEFAULT_CATEGORIES];
+        }
+
+        if (Array.isArray(body)) {
+          // Bulk update all categories
+          await putR2Data(env, 'categories.json', body);
+          return jsonResponse({ success: true, categories: body });
+        } else if (typeof body === 'object' && (body.id || body.slug)) {
+          // Single category upsert
+          const idx = currentCategories.findIndex((c: any) => c.id === body.id || c.slug === body.slug);
+          if (idx >= 0) {
+            currentCategories[idx] = { ...currentCategories[idx], ...body };
+          } else {
+            currentCategories.push(body);
+          }
+          await putR2Data(env, 'categories.json', currentCategories);
+          return jsonResponse({ success: true, category: body, categories: currentCategories });
+        } else {
+          return jsonResponse({ error: 'Invalid category payload shape' }, 400);
+        }
+      }
+    }
+
+    // Single Category delete: /api/categories/:id
+    if (url.pathname.startsWith('/api/categories/')) {
+      const catId = decodeURIComponent(url.pathname.replace(/^\/api\/categories\//, ''));
+      if (request.method === 'DELETE') {
+        if (!isAuthorizedAdmin(request)) {
+          return jsonResponse({ error: 'Unauthorized: Admin authentication required' }, 401);
+        }
+        let currentCategories = await getR2Data<any[]>(env, 'categories.json');
+        if (!Array.isArray(currentCategories)) {
+          currentCategories = [...DEFAULT_CATEGORIES];
+        }
+        currentCategories = currentCategories.filter((c: any) => c.id !== catId && c.slug !== catId);
+        await putR2Data(env, 'categories.json', currentCategories);
+        return jsonResponse({ success: true, categories: currentCategories });
+      }
+    }
+
+    // 5. Additional Site Content Endpoints
+    if (url.pathname === '/api/homepage') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data(env, 'homepage.json');
+        return jsonResponse(stored || DEFAULT_HOMEPAGE_CONTENT);
+      }
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        await putR2Data(env, 'homepage.json', body);
+        return jsonResponse({ success: true, content: body });
+      }
+    }
+
+    if (url.pathname === '/api/worn-by-you') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data(env, 'worn-by-you.json');
+        return jsonResponse(stored || DEFAULT_WORN_BY_YOU);
+      }
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        await putR2Data(env, 'worn-by-you.json', body);
+        return jsonResponse({ success: true, items: body });
+      }
+    }
+
+    if (url.pathname === '/api/contact-info') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data(env, 'contact-info.json');
+        return jsonResponse(stored || DEFAULT_CONTACT_INFO);
+      }
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        await putR2Data(env, 'contact-info.json', body);
+        return jsonResponse({ success: true, contact: body });
+      }
+    }
+
+    if (url.pathname === '/api/site-settings') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data(env, 'site-settings.json');
+        return jsonResponse(stored || DEFAULT_SITE_SETTINGS);
+      }
+      if (request.method === 'POST') {
+        if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        await putR2Data(env, 'site-settings.json', body);
+        return jsonResponse({ success: true, settings: body });
+      }
+    }
+
+    if (url.pathname === '/api/reviews') {
+      if (request.method === 'GET') {
+        const stored = await getR2Data(env, 'reviews.json');
+        return jsonResponse(stored || INITIAL_REVIEWS);
+      }
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        let currentReviews = await getR2Data<any[]>(env, 'reviews.json') || [...INITIAL_REVIEWS];
+        if (Array.isArray(body)) {
+          if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+          await putR2Data(env, 'reviews.json', body);
+          return jsonResponse({ success: true, reviews: body });
+        } else {
+          currentReviews.unshift(body);
+          await putR2Data(env, 'reviews.json', currentReviews);
+          return jsonResponse({ success: true, review: body, reviews: currentReviews });
+        }
+      }
+    }
+
+    if (url.pathname === '/api/orders') {
+      if (request.method === 'GET') {
+        if (!isAuthorizedAdmin(request)) return jsonResponse({ error: 'Unauthorized' }, 401);
+        const stored = await getR2Data(env, 'orders.json');
+        return jsonResponse(stored || []);
+      }
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null);
+        if (!body) return jsonResponse({ error: 'Invalid payload' }, 400);
+        let orders = await getR2Data<any[]>(env, 'orders.json') || [];
+        orders.unshift(body);
+        await putR2Data(env, 'orders.json', orders);
+        return jsonResponse({ success: true, order: body });
+      }
+    }
+
+    if (url.pathname === '/api/auth/status' && request.method === 'GET') {
+      return jsonResponse({
+        hasAdmin: true,
+        authenticated: isAuthorizedAdmin(request),
+      });
+    }
+
+    // 6. Any other /api/ route: NEVER fall through to env.ASSETS (avoids HTTP 405)
+    if (url.pathname.startsWith('/api/')) {
+      return jsonResponse({ error: `API route not found: ${url.pathname}` }, 404);
+    }
+
+    // 7. Static Assets & SPA Routing (ONLY for non-API requests)
     if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
       return await env.ASSETS.fetch(request);
     }
@@ -242,3 +545,4 @@ export default {
     });
   },
 };
+

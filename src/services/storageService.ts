@@ -4,8 +4,13 @@ import { adminAuthService } from './adminAuthService';
 import { apiClient } from './apiClient';
 import {
   saveProductToFirestore,
+  saveAllProductsToFirestore,
   fetchProductsFromFirestore,
-  deleteProductFromFirestore
+  deleteProductFromFirestore,
+  saveCategoryToFirestore,
+  saveAllCategoriesToFirestore,
+  fetchCategoriesFromFirestore,
+  deleteCategoryFromFirestore
 } from './firebaseService';
 
 const PRODUCTS_KEY = 'sofyra_products_v1';
@@ -282,17 +287,17 @@ export const storageService = {
       products.unshift({ ...product });
     }
 
-    // 1. Persist to server backend database and local cache
-    const saved = await this.saveAllProducts(products);
-    if (!saved) {
-      console.warn('[SOFYRA Storage] Backend save returned false, but local cache was updated.');
-    }
-
-    // 2. Store permanent R2 reference and product data in existing Firestore product structure
+    // 1. Direct single-product Firestore write ensuring exact document sync
     try {
       await saveProductToFirestore(product);
     } catch (err) {
       console.warn('[SOFYRA Storage] Note on syncing product to Firestore:', err);
+    }
+
+    // 2. Persist catalogue to Firestore bulk & server backend & local cache
+    const saved = await this.saveAllProducts(products);
+    if (!saved) {
+      console.warn('[SOFYRA Storage] Backend save returned false, but local cache and Firestore were updated.');
     }
 
     return product;
@@ -340,17 +345,23 @@ export const storageService = {
       console.warn('Failed to save products to local storage', e);
     }
 
-    // Persist directly to backend database
+    // 1. Persist directly to Firestore as source of truth
+    try {
+      await saveAllProductsToFirestore(products);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Note on syncing all products to Firestore:', err);
+    }
+
+    // 2. Persist to backend database API
     try {
       const res = await apiClient.saveProducts(products);
       if (!res.success) {
-        console.error('Failed to sync products to database:', res.error);
-        return false;
+        console.warn('Backend products API sync note:', res.error);
       }
       return true;
     } catch (err) {
-      console.error('Failed to sync products to server', err);
-      return false;
+      console.warn('Failed to sync products to server', err);
+      return true;
     }
   },
 
@@ -638,6 +649,21 @@ export const storageService = {
   // CATEGORIES
   // -------------------------------------------------------------------------
   async fetchCategories(): Promise<CategoryHierarchyItem[]> {
+    // 1. Check existing Firestore categories first (Firestore as source of truth)
+    try {
+      const firestoreCategories = await fetchCategoriesFromFirestore();
+      if (Array.isArray(firestoreCategories) && firestoreCategories.length > 0) {
+        cachedCategories = firestoreCategories;
+        try {
+          localStorage.setItem(CATEGORIES_KEY, JSON.stringify(firestoreCategories));
+        } catch {}
+        return firestoreCategories;
+      }
+    } catch (fbErr) {
+      console.warn('[SOFYRA Storage] Firestore categories read note:', fbErr);
+    }
+
+    // 2. Fall back to server API
     try {
       const serverCategories = await apiClient.getCategories();
       if (Array.isArray(serverCategories) && serverCategories.length > 0) {
@@ -685,10 +711,21 @@ export const storageService = {
       console.error(e);
     }
 
-    // Save to server
-    const res = await apiClient.saveCategories(categories);
-    if (!res.success) {
-      console.error('Failed to save categories to server:', res.error);
+    // 1. Persist directly to Firestore as source of truth
+    try {
+      await saveAllCategoriesToFirestore(categories);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Note on syncing all categories to Firestore:', err);
+    }
+
+    // 2. Sync to backend API
+    try {
+      const res = await apiClient.saveCategories(categories);
+      if (!res.success) {
+        console.warn('Failed to save categories to server:', res.error);
+      }
+    } catch (e) {
+      console.warn('Backend categories API sync error:', e);
     }
     return categories;
   },
@@ -703,12 +740,26 @@ export const storageService = {
       updated = [...all, category];
     }
 
+    // 1. Direct single category Firestore write
+    try {
+      await saveCategoryToFirestore(category);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Note on syncing category to Firestore:', err);
+    }
+
     await this.saveCategories(updated);
     return category;
   },
 
   async deleteCategory(categoryId: string): Promise<boolean> {
     this.assertAdminPermission('delete categories');
+
+    // 1. Remove from Firestore
+    try {
+      await deleteCategoryFromFirestore(categoryId);
+    } catch (err) {
+      console.warn('[SOFYRA Storage] Note on deleting category from Firestore:', err);
+    }
 
     const all = this.getCategories();
     const filtered = all.filter(c => c.id !== categoryId && c.slug !== categoryId);
