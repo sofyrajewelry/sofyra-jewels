@@ -294,8 +294,8 @@ export const storageService = {
       console.warn('[SOFYRA Storage] Note on syncing product to Firestore:', err);
     }
 
-    // 2. Persist catalogue to Firestore bulk & server backend & local cache
-    const saved = await this.saveAllProducts(products);
+    // 2. Persist catalogue to local cache & server backend without rewriting all products to Firestore
+    const saved = await this.saveAllProducts(products, { syncFirestore: false });
     if (!saved) {
       console.warn('[SOFYRA Storage] Backend save returned false, but local cache and Firestore were updated.');
     }
@@ -336,7 +336,8 @@ export const storageService = {
     return await this.saveProduct(duplicated);
   },
 
-  async saveAllProducts(products: Product[]): Promise<boolean> {
+  async saveAllProducts(products: Product[], options?: { syncFirestore?: boolean }): Promise<boolean> {
+    const syncFirestore = options?.syncFirestore !== false;
     cachedProducts = products;
     try {
       localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
@@ -345,11 +346,13 @@ export const storageService = {
       console.warn('Failed to save products to local storage', e);
     }
 
-    // 1. Persist directly to Firestore as source of truth
-    try {
-      await saveAllProductsToFirestore(products);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Note on syncing all products to Firestore:', err);
+    // 1. Persist directly to Firestore as source of truth (when enabled)
+    if (syncFirestore) {
+      try {
+        await saveAllProductsToFirestore(products);
+      } catch (err) {
+        console.warn('[SOFYRA Storage] Note on syncing all products to Firestore:', err);
+      }
     }
 
     // 2. Persist to backend database API
@@ -701,8 +704,9 @@ export const storageService = {
     return this.getCategories();
   },
 
-  async saveCategories(categories: CategoryHierarchyItem[]): Promise<CategoryHierarchyItem[]> {
+  async saveCategories(categories: CategoryHierarchyItem[], options?: { syncFirestore?: boolean }): Promise<CategoryHierarchyItem[]> {
     this.assertAdminPermission('manage categories');
+    const syncFirestore = options?.syncFirestore !== false;
     cachedCategories = categories;
     try {
       localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
@@ -711,11 +715,13 @@ export const storageService = {
       console.error(e);
     }
 
-    // 1. Persist directly to Firestore as source of truth
-    try {
-      await saveAllCategoriesToFirestore(categories);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Note on syncing all categories to Firestore:', err);
+    // 1. Persist directly to Firestore as source of truth (when enabled)
+    if (syncFirestore) {
+      try {
+        await saveAllCategoriesToFirestore(categories);
+      } catch (err) {
+        console.warn('[SOFYRA Storage] Note on syncing all categories to Firestore:', err);
+      }
     }
 
     // 2. Sync to backend API
@@ -747,7 +753,7 @@ export const storageService = {
       console.warn('[SOFYRA Storage] Note on syncing category to Firestore:', err);
     }
 
-    await this.saveCategories(updated);
+    await this.saveCategories(updated, { syncFirestore: false });
     return category;
   },
 
