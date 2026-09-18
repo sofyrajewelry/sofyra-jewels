@@ -389,6 +389,9 @@ export const storageService = {
     const product = this.getProductById(id);
     if (!product) return null;
     const updated = { ...product, ...updates };
+    if (!updated.isBestseller) {
+      delete updated.bestsellerOrder;
+    }
     return await this.saveProduct(updated);
   },
 

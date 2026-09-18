@@ -7,6 +7,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  deleteField,
   writeBatch,
   query,
   orderBy,
@@ -216,9 +217,12 @@ export const fetchProductsFromFirestore = async (): Promise<Product[] | null> =>
 
     return snapshot.docs.map(d => {
       const data = d.data() as any;
+      const isBestseller = Boolean(data.isBestseller);
       return {
         id: d.id,
         ...data,
+        isBestseller,
+        bestsellerOrder: isBestseller && data.bestsellerOrder !== undefined ? data.bestsellerOrder : undefined,
         category: (data.category || data.subcategory || 'rings').toLowerCase()
       } as Product;
     });
@@ -236,6 +240,14 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
     const docRef = doc(db, 'products', product.id);
     const cleanData = JSON.parse(JSON.stringify(product));
     delete cleanData.subcategory; // No subcategories
+
+    if (!product.isBestseller || product.bestsellerOrder === undefined || product.bestsellerOrder === null) {
+      cleanData.isBestseller = false;
+      cleanData.bestsellerOrder = deleteField();
+    } else {
+      cleanData.isBestseller = true;
+      cleanData.bestsellerOrder = product.bestsellerOrder;
+    }
 
     // Bound with a 3.5s timeout so hanging or offline Firestore never stalls UI product saving
     const savePromise = setDoc(docRef, cleanData, { merge: true }).then(() => true);
@@ -267,6 +279,15 @@ export const saveAllProductsToFirestore = async (products: Product[]): Promise<b
         const docRef = doc(db, 'products', prod.id);
         const cleanData = JSON.parse(JSON.stringify(prod));
         delete cleanData.subcategory;
+
+        if (!prod.isBestseller || prod.bestsellerOrder === undefined || prod.bestsellerOrder === null) {
+          cleanData.isBestseller = false;
+          cleanData.bestsellerOrder = deleteField();
+        } else {
+          cleanData.isBestseller = true;
+          cleanData.bestsellerOrder = prod.bestsellerOrder;
+        }
+
         batch.set(docRef, cleanData, { merge: true });
       });
       await batch.commit();
