@@ -662,12 +662,22 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
 }
 
 // ---------------------------------------------------------------------------
-// CLOUDFLARE R2 OBJECT STORAGE (S3-Compatible Client)
+// CLOUDFLARE R2 OBJECT STORAGE (env.SOFYRA_IMAGES & S3-Compatible Client)
 // ---------------------------------------------------------------------------
 interface R2Config {
   s3: S3Client;
   bucket: string;
   publicUrl?: string;
+}
+
+// Helper to retrieve Cloudflare R2 bucket binding (env.SOFYRA_IMAGES)
+function getR2BucketBinding(req?: any): any {
+  if (req?.env?.SOFYRA_IMAGES) return req.env.SOFYRA_IMAGES;
+  if (req?.locals?.env?.SOFYRA_IMAGES) return req.locals.env.SOFYRA_IMAGES;
+  if ((globalThis as any).env?.SOFYRA_IMAGES) return (globalThis as any).env.SOFYRA_IMAGES;
+  if ((globalThis as any).SOFYRA_IMAGES) return (globalThis as any).SOFYRA_IMAGES;
+  if ((process.env as any).SOFYRA_IMAGES) return (process.env as any).SOFYRA_IMAGES;
+  return null;
 }
 
 let r2ClientCache: R2Config | null = null;
@@ -756,10 +766,35 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       .slice(0, 20) || 'img';
     const uniqueKey = `products/sofyra-${safeName}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
 
-    const r2 = getR2Config();
+    // 1. Prefer direct Cloudflare Worker R2 bucket binding (env.SOFYRA_IMAGES)
+    const r2Bucket = getR2BucketBinding(req);
+    if (r2Bucket && typeof r2Bucket.put === 'function') {
+      await r2Bucket.put(uniqueKey, buffer, {
+        httpMetadata: {
+          contentType: mimeType,
+          cacheControl: 'public, max-age=31536000, immutable'
+        }
+      });
 
+      const publicDomain = (
+        process.env.R2_PUBLIC_URL ||
+        (globalThis as any).env?.R2_PUBLIC_URL ||
+        (req as any)?.env?.R2_PUBLIC_URL ||
+        ''
+      ).trim().replace(/\/+$/, '');
+      const permanentUrl = publicDomain ? `${publicDomain}/${uniqueKey}` : `/api/r2/${uniqueKey}`;
+
+      return res.json({
+        success: true,
+        url: permanentUrl,
+        filename: uniqueKey,
+        storage: 'cloudflare-r2'
+      });
+    }
+
+    // 2. Fall back to S3 client (e.g. Node.js dev server or Cloud Run container)
+    const r2 = getR2Config();
     if (r2) {
-      // Upload directly to Cloudflare R2 bucket sofyraimages
       await r2.s3.send(
         new PutObjectCommand({
           Bucket: r2.bucket,
@@ -770,10 +805,8 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
         })
       );
 
-      // Build permanent R2 reference/URL
       const permanentUrl = r2.publicUrl ? `${r2.publicUrl}/${uniqueKey}` : `/api/r2/${uniqueKey}`;
 
-      // Newly uploaded images are NOT permanently stored on the server's local filesystem
       return res.json({
         success: true,
         url: permanentUrl,
@@ -782,9 +815,9 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
       });
     }
 
-    // If R2 credentials are not yet configured in server environment variables
+    // If R2 credentials/binding are not yet configured
     return res.status(400).json({
-      error: 'Cloudflare R2 is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY in your server environment variables/secrets to upload images to sofyraimages.',
+      error: 'Cloudflare R2 is not configured. Please ensure env.SOFYRA_IMAGES binding or R2 environment variables are set to upload images to sofyraimages.',
       requiresR2Config: true
     });
   } catch (err: any) {
@@ -795,13 +828,42 @@ app.post('/api/upload', requireAdmin, async (req, res) => {
 
 // Cloudflare R2 Direct Serving Proxy (for persistent access when custom domain is not yet active)
 app.get('/api/r2/:key(*)', async (req, res) => {
+  const key = req.params.key;
+
+  // 1. Try Cloudflare Worker R2 bucket binding (env.SOFYRA_IMAGES)
+  const r2Bucket = getR2BucketBinding(req);
+  if (r2Bucket && typeof r2Bucket.get === 'function') {
+    try {
+      const object = await r2Bucket.get(key);
+      if (!object) {
+        return res.status(404).send('Image not found in R2 bucket');
+      }
+      if (object.httpMetadata?.contentType) {
+        res.setHeader('Content-Type', object.httpMetadata.contentType);
+      }
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      if (object.body && typeof object.body.pipe === 'function') {
+        object.body.pipe(res);
+      } else if (typeof object.arrayBuffer === 'function') {
+        const arrayBuffer = await object.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+      } else {
+        res.status(500).send('Unable to read R2 object body');
+      }
+      return;
+    } catch (err) {
+      console.error('Error fetching image from R2 binding:', err);
+      return res.status(500).send('Error fetching image from R2');
+    }
+  }
+
+  // 2. Fall back to S3 client
   const r2 = getR2Config();
   if (!r2) {
     return res.status(503).json({ error: 'Cloudflare R2 storage is not configured' });
   }
 
   try {
-    const key = req.params.key;
     const response = await r2.s3.send(
       new GetObjectCommand({
         Bucket: r2.bucket,
@@ -1530,7 +1592,126 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Fatal error starting SOFYRA server:', err);
-  process.exit(1);
-});
+// Only start standalone HTTP server when executed directly in Node.js runtime (not in Cloudflare Worker)
+if (typeof process !== 'undefined' && process.release && process.release.name === 'node' && !process.env.CF_WORKER) {
+  startServer().catch((err) => {
+    console.error('Fatal error starting SOFYRA server:', err);
+    process.exit(1);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// CLOUDFLARE WORKER FETCH HANDLER (for 'npx wrangler deploy')
+// ---------------------------------------------------------------------------
+export default {
+  async fetch(request: Request, env: any, ctx: any): Promise<Response> {
+    // Store env for access in bindings
+    (globalThis as any).env = env;
+    if (env?.SOFYRA_IMAGES) {
+      (globalThis as any).SOFYRA_IMAGES = env.SOFYRA_IMAGES;
+    }
+
+    const url = new URL(request.url);
+
+    // Direct Cloudflare Worker image upload handler using env.SOFYRA_IMAGES
+    if (url.pathname === '/api/upload' && request.method === 'POST') {
+      try {
+        const body: any = await request.json();
+        const { image, filename } = body;
+        if (!image || typeof image !== 'string') {
+          return Response.json({ error: 'Missing image data' }, { status: 400 });
+        }
+
+        let mimeType = 'image/jpeg';
+        let base64Data = image;
+        if (image.includes(';base64,')) {
+          const parts = image.split(';base64,');
+          base64Data = parts[1];
+          const mimeMatch = parts[0].match(/data:([a-zA-Z0-9\/+-]+)/);
+          if (mimeMatch) mimeType = mimeMatch[1];
+        } else if (image.startsWith('data:')) {
+          const commaIndex = image.indexOf(',');
+          if (commaIndex !== -1) base64Data = image.substring(commaIndex + 1);
+        }
+        base64Data = base64Data.replace(/\s/g, '');
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        if (bytes.length === 0) {
+          return Response.json({ error: 'Image data is empty or invalid' }, { status: 400 });
+        }
+
+        let ext = 'jpg';
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('webp')) ext = 'webp';
+        else if (mimeType.includes('gif')) ext = 'gif';
+        else if (mimeType.includes('svg')) ext = 'svg';
+        else if (filename && /\.(png|jpe?g|webp|gif|svg)$/i.test(filename)) {
+          const match = filename.match(/\.(png|jpe?g|webp|gif|svg)$/i);
+          if (match) ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+        }
+
+        const safeName = (filename ? filename.replace(/[^a-zA-Z0-9_-]/g, '') : 'img')
+          .slice(0, 20) || 'img';
+        const uniqueKey = `products/sofyra-${safeName}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+        if (env?.SOFYRA_IMAGES && typeof env.SOFYRA_IMAGES.put === 'function') {
+          await env.SOFYRA_IMAGES.put(uniqueKey, bytes, {
+            httpMetadata: {
+              contentType: mimeType,
+              cacheControl: 'public, max-age=31536000, immutable'
+            }
+          });
+
+          const publicDomain = (env.R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+          const permanentUrl = publicDomain ? `${publicDomain}/${uniqueKey}` : `/api/r2/${uniqueKey}`;
+
+          return Response.json({
+            success: true,
+            url: permanentUrl,
+            filename: uniqueKey,
+            storage: 'cloudflare-r2'
+          });
+        }
+
+        return Response.json({
+          error: 'Cloudflare R2 binding env.SOFYRA_IMAGES is not configured.',
+          requiresR2Config: true
+        }, { status: 400 });
+      } catch (err: any) {
+        return Response.json({ error: err.message || 'Failed to process image upload' }, { status: 500 });
+      }
+    }
+
+    // Direct Cloudflare Worker image retrieval handler from env.SOFYRA_IMAGES
+    if (url.pathname.startsWith('/api/r2/') && request.method === 'GET') {
+      const key = decodeURIComponent(url.pathname.replace(/^\/api\/r2\//, ''));
+      if (env?.SOFYRA_IMAGES && typeof env.SOFYRA_IMAGES.get === 'function') {
+        try {
+          const object = await env.SOFYRA_IMAGES.get(key);
+          if (!object) {
+            return new Response('Image not found in R2 bucket', { status: 404 });
+          }
+          const headers = new Headers();
+          if (object.httpMetadata?.contentType) {
+            headers.set('Content-Type', object.httpMetadata.contentType);
+          }
+          headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+          return new Response(object.body, { headers });
+        } catch (err: any) {
+          return new Response('Error fetching image from R2', { status: 500 });
+        }
+      }
+    }
+
+    // Static assets fallback when running in Cloudflare Workers
+    if (env?.ASSETS && typeof env.ASSETS.fetch === 'function') {
+      return await env.ASSETS.fetch(request);
+    }
+
+    return new Response('Not Found', { status: 404 });
+  }
+};
