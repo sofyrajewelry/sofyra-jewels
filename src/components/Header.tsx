@@ -31,12 +31,15 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
     const refreshCategories = () => {
       try {
         const stored = storageService.getCategories();
-        if (stored && stored.length > 0) {
-          setCategories(
-            stored
-              .filter(c => c.enabled !== false && !c.hidden)
-              .sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99))
-          );
+        if (stored) {
+          const active = stored.filter(c => c.enabled !== false && !c.hidden);
+          if (stored.length === 0) {
+            setCategories(DEFAULT_CATEGORIES.filter(c => c.enabled !== false && !c.hidden));
+          } else {
+            setCategories(
+              active.sort((a, b) => (a.displayOrder || a.order || 99) - (b.displayOrder || b.order || 99))
+            );
+          }
         }
       } catch (e) {}
     };

@@ -268,15 +268,21 @@ export const storageService = {
   },
 
   async saveProduct(product: Product): Promise<Product> {
+    // Await Firebase Auth readiness before writing to Firestore
+    await adminAuthService.init();
+    this.assertAdminPermission('save product');
+
     // 1. Direct single-product Firestore write (updates ONLY this product document)
-    await saveProductToFirestore(product);
+    const success = await saveProductToFirestore(product);
+    if (!success) {
+      throw new Error('Firestore save product operation failed.');
+    }
 
     // 2. Fetch the complete Products collection from Firestore
     const updatedProducts = await fetchProductsFromFirestore();
-    const resolvedProducts = Array.isArray(updatedProducts) ? updatedProducts : [];
-    cachedProducts = resolvedProducts;
+    cachedProducts = updatedProducts;
     try {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(resolvedProducts));
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProducts));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
@@ -285,16 +291,21 @@ export const storageService = {
   },
 
   async deleteProduct(id: string): Promise<boolean> {
+    // Await Firebase Auth readiness before writing to Firestore
+    await adminAuthService.init();
     this.assertAdminPermission('delete products');
+
     // Delete only that Firestore document
-    await deleteProductFromFirestore(id);
+    const success = await deleteProductFromFirestore(id);
+    if (!success) {
+      throw new Error('Firestore delete product operation failed.');
+    }
 
     // Fetch the complete Products collection from Firestore
     const updatedProducts = await fetchProductsFromFirestore();
-    const resolvedProducts = Array.isArray(updatedProducts) ? updatedProducts : [];
-    cachedProducts = resolvedProducts;
+    cachedProducts = updatedProducts;
     try {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(resolvedProducts));
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProducts));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
@@ -688,33 +699,43 @@ export const storageService = {
   },
 
   async saveCategories(categories: CategoryHierarchyItem[], options?: { syncFirestore?: boolean }): Promise<CategoryHierarchyItem[]> {
+    // Await Firebase Auth readiness before writing to Firestore
+    await adminAuthService.init();
     this.assertAdminPermission('manage categories');
     
     for (const cat of categories) {
-      await saveCategoryToFirestore(cat);
+      const success = await saveCategoryToFirestore(cat);
+      if (!success) {
+        throw new Error(`Firestore save category operation failed for ${cat.name}`);
+      }
     }
 
     const updatedCategories = await fetchCategoriesFromFirestore();
-    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
-    cachedCategories = resolvedCategories;
+    cachedCategories = updatedCategories;
     try {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
-    return resolvedCategories;
+    return updatedCategories;
   },
 
   async saveCategory(category: CategoryHierarchyItem): Promise<CategoryHierarchyItem> {
+    // Await Firebase Auth readiness before writing to Firestore
+    await adminAuthService.init();
+    this.assertAdminPermission('manage categories');
+
     // 1. Direct single category Firestore write (updates ONLY this category document)
-    await saveCategoryToFirestore(category);
+    const success = await saveCategoryToFirestore(category);
+    if (!success) {
+      throw new Error(`Firestore save category operation failed for ${category.name}`);
+    }
 
     // 2. Fetch the complete Firestore categories collection
     const updatedCategories = await fetchCategoriesFromFirestore();
-    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
-    cachedCategories = resolvedCategories;
+    cachedCategories = updatedCategories;
     try {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
@@ -723,17 +744,21 @@ export const storageService = {
   },
 
   async deleteCategory(categoryId: string): Promise<boolean> {
+    // Await Firebase Auth readiness before writing to Firestore
+    await adminAuthService.init();
     this.assertAdminPermission('delete categories');
 
     // 1. Remove from Firestore
-    await deleteCategoryFromFirestore(categoryId);
+    const success = await deleteCategoryFromFirestore(categoryId);
+    if (!success) {
+      throw new Error('Firestore delete category operation failed.');
+    }
 
     // 2. Fetch the complete Firestore categories collection
     const updatedCategories = await fetchCategoriesFromFirestore();
-    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
-    cachedCategories = resolvedCategories;
+    cachedCategories = updatedCategories;
     try {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
     } catch {}
 
     window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));

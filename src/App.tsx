@@ -169,9 +169,13 @@ export default function App() {
     storageService.fetchHomepageContent().then(data => {
       if (data) setHomepageContent(data);
     });
-    storageService.fetchProducts().then(prods => {
-      if (prods && prods.length > 0) setProducts(prods);
-    });
+    storageService.fetchProducts()
+      .then(prods => {
+        if (prods) setProducts(prods);
+      })
+      .catch(err => {
+        console.error('[SOFYRA App] Failed to fetch products from Firestore, keeping cached products:', err);
+      });
     storageService.fetchReviews().then(revs => {
       if (revs && revs.length > 0) setReviews(revs);
     });

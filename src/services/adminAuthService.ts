@@ -59,9 +59,13 @@ function notifyListeners(user: AdminUser | null) {
 }
 
 // Attach Firebase Auth state listener
+let isListenerSet = false;
+
 function setupAuthListener() {
+  if (isListenerSet) return;
   const auth = getFirebaseAuthInstance();
   if (auth) {
+    isListenerSet = true;
     onAuthStateChanged(auth, async (user: User | null) => {
       if (user) {
         cachedIsAuthenticated = true;

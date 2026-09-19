@@ -124,15 +124,17 @@ export const getFirebaseAuthInstance = (): Auth | null => {
 // 1. FIRESTORE CATEGORIES CRUD
 // ==========================================
 
-export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[] | null> => {
+export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[]> => {
   const db = getFirebaseDb();
-  if (!db) return null;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const colRef = collection(db, 'categories');
     // Get all category documents from Firestore
     const snapshot = await getDocs(colRef);
-    if (snapshot.empty) return null;
+    if (snapshot.empty) return [];
 
     const docs: CategoryItem[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryItem));
 
@@ -145,14 +147,16 @@ export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[] | n
 
     return docs;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Could not fetch categories from Firestore:', err);
-    return null;
+    console.error('[SOFYRA Firebase] Error fetching categories from Firestore:', err);
+    throw err;
   }
 };
 
 export const saveCategoryToFirestore = async (category: CategoryItem): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const docId = category.id || `cat-${category.slug}`;
@@ -165,14 +169,16 @@ export const saveCategoryToFirestore = async (category: CategoryItem): Promise<b
     await setDoc(docRef, cleanData, { merge: true });
     return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error saving category to Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error saving category to Firestore:', err);
+    throw err;
   }
 };
 
 export const saveAllCategoriesToFirestore = async (categories: CategoryItem[]): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const batch = writeBatch(db);
@@ -186,22 +192,24 @@ export const saveAllCategoriesToFirestore = async (categories: CategoryItem[]): 
     await batch.commit();
     return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error saving all categories to Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error saving all categories to Firestore:', err);
+    throw err;
   }
 };
 
 export const deleteCategoryFromFirestore = async (categoryId: string): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const docRef = doc(db, 'categories', categoryId);
     await deleteDoc(docRef);
     return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error deleting category from Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error deleting category from Firestore:', err);
+    throw err;
   }
 };
 
@@ -209,14 +217,16 @@ export const deleteCategoryFromFirestore = async (categoryId: string): Promise<b
 // 2. FIRESTORE PRODUCTS CRUD
 // ==========================================
 
-export const fetchProductsFromFirestore = async (): Promise<Product[] | null> => {
+export const fetchProductsFromFirestore = async (): Promise<Product[]> => {
   const db = getFirebaseDb();
-  if (!db) return null;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const colRef = collection(db, 'products');
     const snapshot = await getDocs(colRef);
-    if (snapshot.empty) return null;
+    if (snapshot.empty) return [];
 
     const docs: Product[] = snapshot.docs.map(d => {
       const data = d.data() as any;
@@ -232,14 +242,16 @@ export const fetchProductsFromFirestore = async (): Promise<Product[] | null> =>
 
     return docs;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Could not fetch products from Firestore:', err);
-    return null;
+    console.error('[SOFYRA Firebase] Error fetching products from Firestore:', err);
+    throw err;
   }
 };
 
 export const saveProductToFirestore = async (product: Product): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const docRef = doc(db, 'products', product.id);
@@ -254,25 +266,19 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
       cleanData.bestsellerOrder = product.bestsellerOrder;
     }
 
-    // Bound with a 3.5s timeout so hanging or offline Firestore never stalls UI product saving
-    const savePromise = setDoc(docRef, cleanData, { merge: true }).then(() => true);
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      setTimeout(() => {
-        console.warn('[SOFYRA Firebase] Firestore write timed out after 3.5s');
-        resolve(false);
-      }, 3500);
-    });
-
-    return await Promise.race([savePromise, timeoutPromise]);
+    await setDoc(docRef, cleanData, { merge: true });
+    return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error saving product to Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error saving product to Firestore:', err);
+    throw err;
   }
 };
 
 export const saveAllProductsToFirestore = async (products: Product[]): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const CHUNK_SIZE = 400;
@@ -299,25 +305,24 @@ export const saveAllProductsToFirestore = async (products: Product[]): Promise<b
     }
     return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error saving all products to Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error saving all products to Firestore:', err);
+    throw err;
   }
 };
 
 export const deleteProductFromFirestore = async (productId: string): Promise<boolean> => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) {
+    throw new Error('Firebase Database is not initialized');
+  }
 
   try {
     const docRef = doc(db, 'products', productId);
-    const deletePromise = deleteDoc(docRef).then(() => true);
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      setTimeout(() => resolve(false), 3000);
-    });
-    return await Promise.race([deletePromise, timeoutPromise]);
+    await deleteDoc(docRef);
+    return true;
   } catch (err) {
-    console.warn('[SOFYRA Firebase] Error deleting product from Firestore:', err);
-    return false;
+    console.error('[SOFYRA Firebase] Error deleting product from Firestore:', err);
+    throw err;
   }
 };
 

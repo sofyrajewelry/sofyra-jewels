@@ -126,13 +126,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       if (revs && revs.length > 0) setReviews(revs);
     });
 
-    storageService.fetchCategories().then(cats => {
-      if (cats && cats.length > 0) setCategories(cats);
-    });
+    storageService.fetchCategories()
+      .then(cats => {
+        if (cats) setCategories(cats);
+      })
+      .catch(err => {
+        console.error('[SOFYRA Admin] Failed to fetch categories from Firestore:', err);
+      });
 
     const handleCategoriesUpdated = () => {
       const cats = storageService.getCategories();
-      if (cats && cats.length > 0) {
+      if (cats) {
         setCategories(cats);
       }
     };
