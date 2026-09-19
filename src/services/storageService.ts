@@ -216,10 +216,15 @@ export const storageService = {
   // PRODUCTS
   // -------------------------------------------------------------------------
   async fetchProducts(): Promise<Product[]> {
-    // 1. Check existing Firestore products first (preserving existing data)
+    try {
+      await adminAuthService.init();
+    } catch (e) {
+      console.warn('[SOFYRA Storage] Auth init wait error in fetchProducts:', e);
+    }
+
     try {
       const firestoreProducts = await fetchProductsFromFirestore();
-      if (Array.isArray(firestoreProducts) && firestoreProducts.length > 0) {
+      if (Array.isArray(firestoreProducts)) {
         cachedProducts = firestoreProducts;
         try {
           localStorage.setItem(PRODUCTS_KEY, JSON.stringify(firestoreProducts));
@@ -227,44 +232,29 @@ export const storageService = {
         return firestoreProducts;
       }
     } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Firestore products read note:', fbErr);
+      console.error('[SOFYRA Storage] Firestore products read error:', fbErr);
+      throw fbErr;
     }
-
-    // 2. Fall back to server API
-    try {
-      const serverProducts = await apiClient.getProducts();
-      if (Array.isArray(serverProducts) && serverProducts.length > 0) {
-        cachedProducts = serverProducts;
-        try {
-          localStorage.setItem(PRODUCTS_KEY, JSON.stringify(serverProducts));
-        } catch {}
-        return serverProducts;
-      }
-    } catch (e) {
-      console.warn('Failed to fetch products from server', e);
-    }
-    return this.getProducts();
+    return [];
   },
 
   getProducts(): Product[] {
-    if (cachedProducts && cachedProducts.length > 0) {
+    if (cachedProducts) {
       return cachedProducts;
     }
     try {
       const stored = localStorage.getItem(PRODUCTS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           cachedProducts = parsed;
           return parsed;
         }
       }
     } catch (e) {
-      console.warn('Storage read error, using fallback seed products', e);
+      console.warn('Storage read error', e);
     }
-
-    cachedProducts = INITIAL_PRODUCTS;
-    return INITIAL_PRODUCTS;
+    return [];
   },
 
   getProductBySlug(slug: string): Product | undefined {
@@ -278,53 +268,37 @@ export const storageService = {
   },
 
   async saveProduct(product: Product): Promise<Product> {
-    const products = this.getProducts();
-    const existingIndex = products.findIndex(p => p.id === product.id);
-
-    if (existingIndex >= 0) {
-      products[existingIndex] = { ...product };
-    } else {
-      products.unshift({ ...product });
-    }
-
     // 1. Direct single-product Firestore write (updates ONLY this product document)
-    try {
-      await saveProductToFirestore(product);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Note on syncing product to Firestore:', err);
-    }
+    await saveProductToFirestore(product);
 
-    // 2. Update local cache and notify event listeners
-    cachedProducts = products;
+    // 2. Fetch the complete Products collection from Firestore
+    const updatedProducts = await fetchProductsFromFirestore();
+    const resolvedProducts = Array.isArray(updatedProducts) ? updatedProducts : [];
+    cachedProducts = resolvedProducts;
     try {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-      window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
-    } catch (e) {
-      console.warn('Failed to save products to local storage', e);
-    }
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(resolvedProducts));
+    } catch {}
 
-    // 3. Sync single product to server backend without bulk overwrite
-    try {
-      await apiClient.saveProduct(product);
-    } catch (err) {
-      console.warn('Failed to sync single product to server:', err);
-    }
+    window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
 
     return product;
   },
 
   async deleteProduct(id: string): Promise<boolean> {
     this.assertAdminPermission('delete products');
-    // Also remove from Firestore document structure if configured
-    deleteProductFromFirestore(id).catch(console.warn);
+    // Delete only that Firestore document
+    await deleteProductFromFirestore(id);
 
-    const products = this.getProducts();
-    const filtered = products.filter(p => p.id !== id);
-    if (filtered.length !== products.length) {
-      await this.saveAllProducts(filtered);
-      return true;
-    }
-    return false;
+    // Fetch the complete Products collection from Firestore
+    const updatedProducts = await fetchProductsFromFirestore();
+    const resolvedProducts = Array.isArray(updatedProducts) ? updatedProducts : [];
+    cachedProducts = resolvedProducts;
+    try {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(resolvedProducts));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
+    return true;
   },
 
   async duplicateProduct(id: string): Promise<Product | null> {
@@ -356,26 +330,16 @@ export const storageService = {
       console.warn('Failed to save products to local storage', e);
     }
 
-    // 1. Persist directly to Firestore as source of truth (when enabled)
     if (syncFirestore) {
       try {
-        await saveAllProductsToFirestore(products);
+        for (const p of products) {
+          await saveProductToFirestore(p);
+        }
       } catch (err) {
         console.warn('[SOFYRA Storage] Note on syncing all products to Firestore:', err);
       }
     }
-
-    // 2. Persist to backend database API
-    try {
-      const res = await apiClient.saveProducts(products);
-      if (!res.success) {
-        console.warn('Backend products API sync note:', res.error);
-      }
-      return true;
-    } catch (err) {
-      console.warn('Failed to sync products to server', err);
-      return true;
-    }
+    return true;
   },
 
   async addProduct(data: Omit<Product, 'id' | 'slug' | 'sku' | 'createdAt' | 'rating' | 'reviewCount'> & { sku?: string }): Promise<Product> {
@@ -435,15 +399,18 @@ export const storageService = {
     // Update only the reordered best seller product documents in Firestore
     const reorderedProducts = updated.filter(p => orderedIds.includes(p.id));
     for (const p of reorderedProducts) {
-      try {
-        await saveProductToFirestore(p);
-      } catch (err) {
-        console.warn('[SOFYRA Storage] Best seller reorder sync note:', err);
-      }
+      await saveProductToFirestore(p);
     }
 
-    await this.saveAllProducts(updated, { syncFirestore: false });
-    return updated;
+    const updatedProducts = await fetchProductsFromFirestore();
+    const resolvedProducts = Array.isArray(updatedProducts) ? updatedProducts : [];
+    cachedProducts = resolvedProducts;
+    try {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(resolvedProducts));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
+    return resolvedProducts;
   },
 
   async setPrimaryImage(id: string, imageIndexOrUrl: number | string): Promise<Product | null> {
@@ -458,7 +425,8 @@ export const storageService = {
       newImages = newImages.filter(img => img !== imageIndexOrUrl);
       newImages.unshift(imageIndexOrUrl);
     }
-    return await this.updateProduct(id, { images: newImages });
+    const updated = { ...product, images: newImages };
+    return await this.saveProduct(updated);
   },
 
   // -------------------------------------------------------------------------
@@ -676,10 +644,15 @@ export const storageService = {
   // CATEGORIES
   // -------------------------------------------------------------------------
   async fetchCategories(): Promise<CategoryHierarchyItem[]> {
-    // 1. Check existing Firestore categories first (Firestore as source of truth)
+    try {
+      await adminAuthService.init();
+    } catch (e) {
+      console.warn('[SOFYRA Storage] Auth init wait error in fetchCategories:', e);
+    }
+
     try {
       const firestoreCategories = await fetchCategoriesFromFirestore();
-      if (Array.isArray(firestoreCategories) && firestoreCategories.length > 0) {
+      if (Array.isArray(firestoreCategories)) {
         cachedCategories = firestoreCategories;
         try {
           localStorage.setItem(CATEGORIES_KEY, JSON.stringify(firestoreCategories));
@@ -687,41 +660,27 @@ export const storageService = {
         return firestoreCategories;
       }
     } catch (fbErr) {
-      console.warn('[SOFYRA Storage] Firestore categories read note:', fbErr);
+      console.error('[SOFYRA Storage] Firestore categories read error:', fbErr);
+      throw fbErr;
     }
-
-    // 2. Fall back to server API
-    try {
-      const serverCategories = await apiClient.getCategories();
-      if (Array.isArray(serverCategories) && serverCategories.length > 0) {
-        cachedCategories = serverCategories;
-        try {
-          localStorage.setItem(CATEGORIES_KEY, JSON.stringify(serverCategories));
-        } catch {}
-        return serverCategories;
-      }
-    } catch (e) {
-      console.warn('Failed to fetch categories from server', e);
-    }
-    return this.getCategories();
+    return [];
   },
 
   getCategories(): CategoryHierarchyItem[] {
-    if (cachedCategories && cachedCategories.length > 0) {
+    if (cachedCategories) {
       return cachedCategories;
     }
     try {
       const stored = localStorage.getItem(CATEGORIES_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           cachedCategories = parsed;
           return parsed;
         }
       }
     } catch {}
-    cachedCategories = DEFAULT_CATEGORIES;
-    return DEFAULT_CATEGORIES;
+    return [];
   },
 
   getCategoriesHierarchy(): CategoryHierarchyItem[] {
@@ -730,68 +689,35 @@ export const storageService = {
 
   async saveCategories(categories: CategoryHierarchyItem[], options?: { syncFirestore?: boolean }): Promise<CategoryHierarchyItem[]> {
     this.assertAdminPermission('manage categories');
-    const syncFirestore = options?.syncFirestore !== false;
-    cachedCategories = categories;
-    try {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
-      window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
-    } catch (e) {
-      console.error(e);
+    
+    for (const cat of categories) {
+      await saveCategoryToFirestore(cat);
     }
 
-    // 1. Persist directly to Firestore as source of truth (when enabled)
-    if (syncFirestore) {
-      try {
-        await saveAllCategoriesToFirestore(categories);
-      } catch (err) {
-        console.warn('[SOFYRA Storage] Note on syncing all categories to Firestore:', err);
-      }
-    }
-
-    // 2. Sync to backend API
+    const updatedCategories = await fetchCategoriesFromFirestore();
+    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
+    cachedCategories = resolvedCategories;
     try {
-      const res = await apiClient.saveCategories(categories);
-      if (!res.success) {
-        console.warn('Failed to save categories to server:', res.error);
-      }
-    } catch (e) {
-      console.warn('Backend categories API sync error:', e);
-    }
-    return categories;
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
+    return resolvedCategories;
   },
 
   async saveCategory(category: CategoryHierarchyItem): Promise<CategoryHierarchyItem> {
-    const all = this.getCategories();
-    const idx = all.findIndex(c => c.id === category.id || c.slug === category.slug);
-    let updated: CategoryHierarchyItem[];
-    if (idx >= 0) {
-      updated = all.map((c, i) => i === idx ? category : c);
-    } else {
-      updated = [...all, category];
-    }
-
     // 1. Direct single category Firestore write (updates ONLY this category document)
-    try {
-      await saveCategoryToFirestore(category);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Note on syncing category to Firestore:', err);
-    }
+    await saveCategoryToFirestore(category);
 
-    // 2. Update local cache and notify event listeners
-    cachedCategories = updated;
+    // 2. Fetch the complete Firestore categories collection
+    const updatedCategories = await fetchCategoriesFromFirestore();
+    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
+    cachedCategories = resolvedCategories;
     try {
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
-    } catch (e) {
-      console.error(e);
-    }
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+    } catch {}
 
-    // 3. Sync single category to server backend without bulk overwrite
-    try {
-      await apiClient.saveCategory(category);
-    } catch (err) {
-      console.warn('Failed to sync single category to server:', err);
-    }
+    window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
 
     return category;
   },
@@ -800,15 +726,17 @@ export const storageService = {
     this.assertAdminPermission('delete categories');
 
     // 1. Remove from Firestore
-    try {
-      await deleteCategoryFromFirestore(categoryId);
-    } catch (err) {
-      console.warn('[SOFYRA Storage] Note on deleting category from Firestore:', err);
-    }
+    await deleteCategoryFromFirestore(categoryId);
 
-    const all = this.getCategories();
-    const filtered = all.filter(c => c.id !== categoryId && c.slug !== categoryId);
-    await this.saveCategories(filtered);
+    // 2. Fetch the complete Firestore categories collection
+    const updatedCategories = await fetchCategoriesFromFirestore();
+    const resolvedCategories = Array.isArray(updatedCategories) ? updatedCategories : [];
+    cachedCategories = resolvedCategories;
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(resolvedCategories));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
     return true;
   },
 
