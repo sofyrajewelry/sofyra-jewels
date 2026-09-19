@@ -38,6 +38,27 @@ let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
 let authInstance: Auth | null = null;
 
+let isFirebaseInitLogged = false;
+
+async function withFirestoreTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number = 20000,
+  description: string = 'Firestore operation'
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${description} timed out after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([operation(), timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 export const initFirebase = (): {
   app: FirebaseApp | null;
   db: Firestore | null;
@@ -57,6 +78,14 @@ export const initFirebase = (): {
     dbInstance = firebaseConfig.firestoreDatabaseId
       ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId)
       : getFirestore(appInstance);
+
+    if (!isFirebaseInitLogged) {
+      isFirebaseInitLogged = true;
+      const resolvedProjectId = firebaseConfig.projectId || '(unknown)';
+      const resolvedDatabaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+      console.log(`[SOFYRA Firebase] Initialized with projectId: "${resolvedProjectId}", databaseId: "${resolvedDatabaseId}"`);
+    }
+
     storageInstance = getStorage(appInstance);
     // Limit upload retry window to 10s so UI never hangs indefinitely if storage is unavailable
     try {
@@ -133,7 +162,11 @@ export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[]> =>
   try {
     const colRef = collection(db, 'categories');
     // Get all category documents from Firestore
-    const snapshot = await getDocs(colRef);
+    const snapshot = await withFirestoreTimeout(
+      () => getDocs(colRef),
+      20000,
+      'fetchCategories getDocs'
+    );
     if (snapshot.empty) return [];
 
     const docs: CategoryItem[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryItem));
@@ -166,7 +199,11 @@ export const saveCategoryToFirestore = async (category: CategoryItem): Promise<b
     const cleanData = JSON.parse(JSON.stringify(category));
     delete cleanData.subcategories; // Ensure no subcategories in Firestore schema
 
-    await setDoc(docRef, cleanData, { merge: true });
+    await withFirestoreTimeout(
+      () => setDoc(docRef, cleanData, { merge: true }),
+      20000,
+      'saveCategory setDoc'
+    );
     return true;
   } catch (err) {
     console.error('[SOFYRA Firebase] Error saving category to Firestore:', err);
@@ -189,7 +226,11 @@ export const saveAllCategoriesToFirestore = async (categories: CategoryItem[]): 
       delete cleanData.subcategories;
       batch.set(docRef, cleanData, { merge: true });
     });
-    await batch.commit();
+    await withFirestoreTimeout(
+      () => batch.commit(),
+      20000,
+      'saveAllCategories batch.commit'
+    );
     return true;
   } catch (err) {
     console.error('[SOFYRA Firebase] Error saving all categories to Firestore:', err);
@@ -205,7 +246,11 @@ export const deleteCategoryFromFirestore = async (categoryId: string): Promise<b
 
   try {
     const docRef = doc(db, 'categories', categoryId);
-    await deleteDoc(docRef);
+    await withFirestoreTimeout(
+      () => deleteDoc(docRef),
+      20000,
+      'deleteCategory deleteDoc'
+    );
     return true;
   } catch (err) {
     console.error('[SOFYRA Firebase] Error deleting category from Firestore:', err);
@@ -225,7 +270,11 @@ export const fetchProductsFromFirestore = async (): Promise<Product[]> => {
 
   try {
     const colRef = collection(db, 'products');
-    const snapshot = await getDocs(colRef);
+    const snapshot = await withFirestoreTimeout(
+      () => getDocs(colRef),
+      20000,
+      'fetchProducts getDocs'
+    );
     if (snapshot.empty) return [];
 
     const docs: Product[] = snapshot.docs.map(d => {
@@ -266,7 +315,11 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
       cleanData.bestsellerOrder = product.bestsellerOrder;
     }
 
-    await setDoc(docRef, cleanData, { merge: true });
+    await withFirestoreTimeout(
+      () => setDoc(docRef, cleanData, { merge: true }),
+      20000,
+      'saveProduct setDoc'
+    );
     return true;
   } catch (err) {
     console.error('[SOFYRA Firebase] Error saving product to Firestore:', err);
@@ -301,7 +354,11 @@ export const saveAllProductsToFirestore = async (products: Product[]): Promise<b
 
         batch.set(docRef, cleanData, { merge: true });
       });
-      await batch.commit();
+      await withFirestoreTimeout(
+        () => batch.commit(),
+        20000,
+        'saveAllProducts batch.commit'
+      );
     }
     return true;
   } catch (err) {
@@ -318,7 +375,11 @@ export const deleteProductFromFirestore = async (productId: string): Promise<boo
 
   try {
     const docRef = doc(db, 'products', productId);
-    await deleteDoc(docRef);
+    await withFirestoreTimeout(
+      () => deleteDoc(docRef),
+      20000,
+      'deleteProduct deleteDoc'
+    );
     return true;
   } catch (err) {
     console.error('[SOFYRA Firebase] Error deleting product from Firestore:', err);

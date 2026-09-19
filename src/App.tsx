@@ -213,8 +213,12 @@ export default function App() {
 
   // Sync products when modified in Admin
   const handleRefreshProducts = async () => {
-    const prods = await storageService.fetchProducts();
-    setProducts(prods);
+    try {
+      const prods = await storageService.fetchProducts();
+      if (prods) setProducts(prods);
+    } catch (err) {
+      console.error('[SOFYRA App] Error refreshing products from Firestore, keeping current products:', err);
+    }
   };
 
   const handleRefreshReviews = async () => {

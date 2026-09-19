@@ -58,6 +58,18 @@ function notifyListeners(user: AdminUser | null) {
   });
 }
 
+async function getIdTokenWithTimeout(user: User, timeoutMs: number = 10000): Promise<string> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Firebase Auth getIdToken timed out after 10s')), timeoutMs);
+  });
+  try {
+    return await Promise.race([user.getIdToken(), timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 // Attach Firebase Auth state listener
 let isListenerSet = false;
 
@@ -72,7 +84,7 @@ function setupAuthListener() {
         cachedAdminEmail = user.email || null;
         cachedHasAdmin = true;
         try {
-          const token = await user.getIdToken();
+          const token = await getIdTokenWithTimeout(user, 10000);
           apiClient.setToken(token);
         } catch {
           // Token extraction error fallback
@@ -142,7 +154,7 @@ export const adminAuthService = {
           cachedAdminEmail = auth.currentUser.email || cachedAdminEmail;
           cachedHasAdmin = true;
           try {
-            const token = await auth.currentUser.getIdToken();
+            const token = await getIdTokenWithTimeout(auth.currentUser, 10000);
             apiClient.setToken(token);
           } catch {}
         }
