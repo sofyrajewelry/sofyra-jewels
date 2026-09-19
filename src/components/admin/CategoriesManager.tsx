@@ -43,6 +43,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
 
   useEffect(() => {
     if (categories && categories.length > 0) {
@@ -62,6 +63,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
   };
 
   const handleOpenAdd = () => {
+    setSaveStatus('idle');
     const nextOrder = items.length > 0 
       ? Math.max(...items.map(c => typeof c.displayOrder === 'number' ? c.displayOrder : (c.order || 0))) + 1 
       : 1;
@@ -73,6 +75,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
   };
 
   const handleOpenEdit = (cat: CategoryHierarchyItem) => {
+    setSaveStatus('idle');
     setEditingCategory({
       id: cat.id,
       name: cat.name || '',
@@ -89,6 +92,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
   };
 
   const handleCloseModal = () => {
+    setSaveStatus('idle');
     setEditingCategory(null);
     setIsAddingCategory(false);
   };
@@ -111,6 +115,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
     if (!editingCategory || !editingCategory.name.trim()) return;
 
     setIsSaving(true);
+    setSaveStatus('saving');
     const slug = (editingCategory.slug || editingCategory.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
     const id = editingCategory.id || `cat-${slug || Date.now()}`;
 
@@ -132,15 +137,18 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
     };
 
     try {
-      const updated = await storageService.saveCategory(categoryItem);
+      await storageService.saveCategory(categoryItem);
+      // Actual Firestore save successfully completed!
+      setSaveStatus('saved');
       const allUpdated = storageService.getCategories();
       setItems(allUpdated);
       onCategoriesUpdated(allUpdated);
-      showSuccess(isAddingCategory ? `Category "${categoryItem.name}" created and synced to Firestore!` : `Category "${categoryItem.name}" updated in Firestore!`);
+      showSuccess(isAddingCategory ? `Category "${categoryItem.name}" created!` : `Category "${categoryItem.name}" updated!`);
+      await new Promise(res => setTimeout(res, 800));
       handleCloseModal();
     } catch (err) {
       console.error('Failed to save category:', err);
-      alert('Could not save category. Please check your connection and try again.');
+      setSaveStatus('failed');
     } finally {
       setIsSaving(false);
     }
@@ -577,7 +585,15 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
                   className="px-6 py-2.5 bg-black text-white hover:bg-stone-800 text-xs tracking-[0.2em] uppercase font-semibold cursor-pointer shadow-sm transition-colors flex items-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{isSaving ? 'Saving to Firestore...' : (isAddingCategory ? 'Create Category' : 'Save Changes')}</span>
+                  <span>
+                    {saveStatus === 'saving'
+                      ? 'Saving…'
+                      : saveStatus === 'saved'
+                      ? 'Saved ✓'
+                      : saveStatus === 'failed'
+                      ? 'Save failed — try again'
+                      : (isAddingCategory ? 'Create Category' : 'Save Changes')}
+                  </span>
                 </button>
               </div>
             </form>

@@ -130,17 +130,20 @@ export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[] | n
 
   try {
     const colRef = collection(db, 'categories');
-    const q = query(colRef, orderBy('displayOrder', 'asc'));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-      // Try fetching without orderBy in case index/field is missing
-      const plainSnapshot = await getDocs(colRef);
-      if (plainSnapshot.empty) return null;
-      return plainSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryItem));
-    }
+    // Get all category documents from Firestore
+    const snapshot = await getDocs(colRef);
+    if (snapshot.empty) return null;
 
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryItem));
+    const docs: CategoryItem[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CategoryItem));
+
+    // Sort in application code: items with displayOrder/order first, then others
+    docs.sort((a, b) => {
+      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : (typeof a.order === 'number' ? a.order : 999);
+      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : (typeof b.order === 'number' ? b.order : 999);
+      return orderA - orderB;
+    });
+
+    return docs;
   } catch (err) {
     console.warn('[SOFYRA Firebase] Could not fetch categories from Firestore:', err);
     return null;
@@ -215,7 +218,7 @@ export const fetchProductsFromFirestore = async (): Promise<Product[] | null> =>
     const snapshot = await getDocs(colRef);
     if (snapshot.empty) return null;
 
-    return snapshot.docs.map(d => {
+    const docs: Product[] = snapshot.docs.map(d => {
       const data = d.data() as any;
       const isBestseller = Boolean(data.isBestseller);
       return {
@@ -226,6 +229,8 @@ export const fetchProductsFromFirestore = async (): Promise<Product[] | null> =>
         category: (data.category || data.subcategory || 'rings').toLowerCase()
       } as Product;
     });
+
+    return docs;
   } catch (err) {
     console.warn('[SOFYRA Firebase] Could not fetch products from Firestore:', err);
     return null;

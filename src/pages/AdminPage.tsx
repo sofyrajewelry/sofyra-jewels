@@ -130,6 +130,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       if (cats && cats.length > 0) setCategories(cats);
     });
 
+    const handleCategoriesUpdated = () => {
+      const cats = storageService.getCategories();
+      if (cats && cats.length > 0) {
+        setCategories(cats);
+      }
+    };
+    window.addEventListener('sofyra:categories-updated', handleCategoriesUpdated);
+
     storageService.fetchWornByYou().then(items => {
       if (items && items.length > 0) setWornByYou(items);
     });
@@ -144,6 +152,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
     return () => {
       unsubscribe();
+      window.removeEventListener('sofyra:categories-updated', handleCategoriesUpdated);
     };
   }, []);
 
@@ -158,6 +167,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [quickImageProduct, setQuickImageProduct] = useState<Product | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [productSaveStatus, setProductSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [isGalleryUploading, setIsGalleryUploading] = useState(false);
   const [isQuickUploading, setIsQuickUploading] = useState(false);
   const [productForm, setProductForm] = useState<{
@@ -374,11 +384,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Product Add / Edit handlers
   const handleOpenAddProduct = () => {
+    setProductSaveStatus('idle');
     setEditingProduct(null);
+    const activeCats = (categories || []).filter(c => c.enabled !== false && !c.hidden);
+    const initialCat = activeCats[0]?.slug || categories[0]?.slug || 'rings';
     setProductForm({
       name: '',
       subtitle: '',
-      category: (categories[0]?.slug as ProductCategory) || 'rings',
+      category: initialCat as ProductCategory,
       sku: `SOF-${Math.floor(1000 + Math.random() * 9000)}`,
       price: 3500,
       compareAtPrice: 4200,
@@ -401,6 +414,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const handleOpenEditProduct = (prod: Product) => {
+    setProductSaveStatus('idle');
     setEditingProduct(prod);
     setProductForm({
       name: prod.name,
@@ -428,6 +442,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProduct(true);
+    setProductSaveStatus('saving');
     try {
       const cleanImages = productForm.images.filter(Boolean);
       if (cleanImages.length === 0) {
@@ -485,12 +500,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         });
       }
 
-      setIsProductModalOpen(false);
+      // Actual Firestore save successfully completes!
+      setProductSaveStatus('saved');
       onRefreshProducts();
-      setSuccessToast(`"${productForm.name}" and all photos saved to persistent database.`);
+      setSuccessToast(`"${productForm.name}" saved successfully.`);
+      await new Promise(res => setTimeout(res, 800));
+      setIsProductModalOpen(false);
       setTimeout(() => setSuccessToast(null), 3500);
+      setProductSaveStatus('idle');
     } catch (err: any) {
-      alert(`Failed to save product: ${err.message || 'Unknown error'}`);
+      console.error('Failed to save product:', err);
+      setProductSaveStatus('failed');
     } finally {
       setIsSavingProduct(false);
     }
@@ -2333,20 +2353,47 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     onChange={e => setProductForm({ ...productForm, category: e.target.value as ProductCategory })}
                     className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none uppercase"
                   >
-                    {categories && categories.length > 0 ? (
-                      categories.map(cat => (
-                        <option key={cat.id} value={cat.slug}>
-                          {cat.name}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="rings">Rings</option>
-                        <option value="bracelets">Bracelets</option>
-                        <option value="necklaces">Necklaces</option>
-                        <option value="earrings">Earrings</option>
-                      </>
-                    )}
+                    {(() => {
+                      const selectedVal = (productForm.category || '').toLowerCase().trim();
+                      const allCats = categories || [];
+
+                      // Visible categories:
+                      // For a NEW product: show only enabled/active categories
+                      // For an EXISTING product: show enabled categories PLUS the product's current category if disabled
+                      const visibleCats = allCats.filter(cat => {
+                        const isEnabled = cat.enabled !== false && !cat.hidden;
+                        if (isEnabled) return true;
+                        if (editingProduct) {
+                          const catSlug = (cat.slug || '').toLowerCase().trim();
+                          const catId = (cat.id || '').toLowerCase().trim();
+                          if (catSlug === selectedVal || catId === selectedVal) {
+                            return true;
+                          }
+                        }
+                        return false;
+                      });
+
+                      const hasSelectedInVisible = visibleCats.some(cat => {
+                        const catSlug = (cat.slug || '').toLowerCase().trim();
+                        const catId = (cat.id || '').toLowerCase().trim();
+                        return catSlug === selectedVal || catId === selectedVal;
+                      });
+
+                      return (
+                        <>
+                          {visibleCats.map(cat => (
+                            <option key={cat.id} value={cat.slug || cat.id}>
+                              {cat.name} {cat.enabled === false || cat.hidden ? ' (Disabled)' : ''}
+                            </option>
+                          ))}
+                          {!hasSelectedInVisible && selectedVal && (
+                            <option value={selectedVal}>
+                              {selectedVal.toUpperCase()}
+                            </option>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
               </div>
@@ -2539,8 +2586,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 >
                   {(isSavingProduct || isGalleryUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>
-                    {isSavingProduct
-                      ? 'Saving to Database...'
+                    {productSaveStatus === 'saving'
+                      ? 'Saving…'
+                      : productSaveStatus === 'saved'
+                      ? 'Saved ✓'
+                      : productSaveStatus === 'failed'
+                      ? 'Save failed — try again'
                       : isGalleryUploading
                       ? 'Uploading Photos...'
                       : 'Save Piece & Photos'}
