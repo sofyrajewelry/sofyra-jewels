@@ -1015,7 +1015,12 @@ app.post('/api/products', requireAdmin, (req, res) => {
     createdAt: productData.createdAt || new Date().toISOString()
   };
 
-  store.products = [newProduct, ...store.products];
+  const existingIdx = store.products.findIndex((p: any) => p.id === id || p.slug === slug);
+  if (existingIdx >= 0) {
+    store.products[existingIdx] = { ...store.products[existingIdx], ...newProduct };
+  } else {
+    store.products.unshift(newProduct);
+  }
   writeStore(store);
 
   res.json({ success: true, product: newProduct });
@@ -1104,7 +1109,12 @@ app.post('/api/categories', requireAdmin, (req, res) => {
     subcategories: Array.isArray(newCat.subcategories) ? newCat.subcategories : []
   };
 
-  store.categories.push(categoryItem);
+  const existingIdx = store.categories.findIndex((c: any) => c.id === id || c.slug === slug);
+  if (existingIdx >= 0) {
+    store.categories[existingIdx] = { ...store.categories[existingIdx], ...categoryItem };
+  } else {
+    store.categories.push(categoryItem);
+  }
   writeStore(store);
 
   res.json({ success: true, category: categoryItem });

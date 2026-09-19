@@ -287,17 +287,27 @@ export const storageService = {
       products.unshift({ ...product });
     }
 
-    // 1. Direct single-product Firestore write ensuring exact document sync
+    // 1. Direct single-product Firestore write (updates ONLY this product document)
     try {
       await saveProductToFirestore(product);
     } catch (err) {
       console.warn('[SOFYRA Storage] Note on syncing product to Firestore:', err);
     }
 
-    // 2. Persist catalogue to local cache & server backend without rewriting all products to Firestore
-    const saved = await this.saveAllProducts(products, { syncFirestore: false });
-    if (!saved) {
-      console.warn('[SOFYRA Storage] Backend save returned false, but local cache and Firestore were updated.');
+    // 2. Update local cache and notify event listeners
+    cachedProducts = products;
+    try {
+      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+      window.dispatchEvent(new CustomEvent('sofyra:products-updated'));
+    } catch (e) {
+      console.warn('Failed to save products to local storage', e);
+    }
+
+    // 3. Sync single product to server backend without bulk overwrite
+    try {
+      await apiClient.saveProduct(product);
+    } catch (err) {
+      console.warn('Failed to sync single product to server:', err);
     }
 
     return product;
@@ -421,7 +431,18 @@ export const storageService = {
       }
       return p;
     });
-    await this.saveAllProducts(updated);
+
+    // Update only the reordered best seller product documents in Firestore
+    const reorderedProducts = updated.filter(p => orderedIds.includes(p.id));
+    for (const p of reorderedProducts) {
+      try {
+        await saveProductToFirestore(p);
+      } catch (err) {
+        console.warn('[SOFYRA Storage] Best seller reorder sync note:', err);
+      }
+    }
+
+    await this.saveAllProducts(updated, { syncFirestore: false });
     return updated;
   },
 
@@ -749,14 +770,29 @@ export const storageService = {
       updated = [...all, category];
     }
 
-    // 1. Direct single category Firestore write
+    // 1. Direct single category Firestore write (updates ONLY this category document)
     try {
       await saveCategoryToFirestore(category);
     } catch (err) {
       console.warn('[SOFYRA Storage] Note on syncing category to Firestore:', err);
     }
 
-    await this.saveCategories(updated, { syncFirestore: false });
+    // 2. Update local cache and notify event listeners
+    cachedCategories = updated;
+    try {
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('sofyra:categories-updated'));
+    } catch (e) {
+      console.error(e);
+    }
+
+    // 3. Sync single category to server backend without bulk overwrite
+    try {
+      await apiClient.saveCategory(category);
+    } catch (err) {
+      console.warn('Failed to sync single category to server:', err);
+    }
+
     return category;
   },
 

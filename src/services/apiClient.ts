@@ -138,6 +138,27 @@ export const apiClient = {
     }
   },
 
+  async saveProduct(product: Product): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(product)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, error: errData.error || 'Failed to save product' };
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.error('API saveProduct error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async patchProduct(id: string, updates: Partial<Product>): Promise<{ success: boolean; error?: string; product?: Product }> {
     try {
       const res = await fetch(`/api/products/${id}`, {
@@ -295,6 +316,22 @@ export const apiClient = {
           ...getAuthHeader()
         },
         body: JSON.stringify(categories)
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async saveCategory(category: import('../types').CategoryHierarchyItem): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(category)
       });
       return { success: res.ok };
     } catch (e: any) {
