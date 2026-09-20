@@ -167,6 +167,52 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Product modal state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [diagnosticError, setDiagnosticError] = useState<{ name: string; code: string; message: string } | null>(null);
+
+  // Temporary diagnostic-only error listener
+  useEffect(() => {
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (reason) {
+        setDiagnosticError({
+          name: reason.name || 'Error',
+          code: reason.code || reason.errCode || 'N/A',
+          message: reason.message || String(reason)
+        });
+      }
+    };
+
+    const originalConsoleError = console.error;
+    console.error = (...args: any[]) => {
+      originalConsoleError.apply(console, args);
+      
+      for (const arg of args) {
+        if (arg && typeof arg === 'object') {
+          if (arg.message && (arg.code || arg.name)) {
+            setDiagnosticError({
+              name: arg.name || 'Error',
+              code: arg.code || 'N/A',
+              message: arg.message || String(arg)
+            });
+            break;
+          }
+        } else if (typeof arg === 'string' && arg.includes('[SOFYRA Firebase]')) {
+          setDiagnosticError({
+            name: 'Firebase Error',
+            code: 'N/A',
+            message: arg
+          });
+        }
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('unhandledrejection', handleRejection);
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [quickImageProduct, setQuickImageProduct] = useState<Product | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -515,6 +561,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     } catch (err: any) {
       console.error('Failed to save product:', err);
       setProductSaveStatus('failed');
+      setDiagnosticError({
+        name: err?.name || 'Error',
+        code: err?.code || 'N/A',
+        message: err?.message || 'Unknown error'
+      });
     } finally {
       setIsSavingProduct(false);
     }
@@ -644,6 +695,43 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* VISIBLE DIAGNOSTIC ERROR DISPLAY */}
+      {diagnosticError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <div className="bg-red-50 border border-red-500 text-red-900 p-5 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 relative shadow-md">
+            <div className="bg-red-100 p-2.5 rounded-full text-red-600 shrink-0">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <h4 className="text-sm font-bold uppercase tracking-wider text-red-800">
+                [SOFYRA DIAGNOSTIC ERROR DETECTED]
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-xs">
+                <div>
+                  <span className="font-semibold text-red-700">Error Name:</span>{' '}
+                  <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.name}</code>
+                </div>
+                <div>
+                  <span className="font-semibold text-red-700">Error Code:</span>{' '}
+                  <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.code}</code>
+                </div>
+                <div className="md:col-span-3 mt-1">
+                  <span className="font-semibold text-red-700">Error Message:</span>{' '}
+                  <span className="font-medium">{diagnosticError.message}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDiagnosticError(null)}
+              className="absolute top-3 right-3 text-red-400 hover:text-red-700 cursor-pointer text-lg font-bold"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
