@@ -75,14 +75,16 @@ export const initFirebase = (): {
     } else {
       appInstance = getApp();
     }
-    dbInstance = firebaseConfig.firestoreDatabaseId
-      ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId)
+    const rawDbId = (firebaseConfig.firestoreDatabaseId || '').trim();
+    const isCustomDb = Boolean(rawDbId && rawDbId !== '(default)' && rawDbId !== 'default');
+    dbInstance = isCustomDb
+      ? getFirestore(appInstance, rawDbId)
       : getFirestore(appInstance);
 
     if (!isFirebaseInitLogged) {
       isFirebaseInitLogged = true;
       const resolvedProjectId = firebaseConfig.projectId || '(unknown)';
-      const resolvedDatabaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+      const resolvedDatabaseId = isCustomDb ? rawDbId : '(default)';
       console.log(`[SOFYRA Firebase] Initialized with projectId: "${resolvedProjectId}", databaseId: "${resolvedDatabaseId}"`);
     }
 
@@ -179,8 +181,8 @@ export const fetchCategoriesFromFirestore = async (): Promise<CategoryItem[]> =>
     });
 
     return docs;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error fetching categories from Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] fetchCategoriesFromFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -205,8 +207,8 @@ export const saveCategoryToFirestore = async (category: CategoryItem): Promise<b
       'saveCategory setDoc'
     );
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error saving category to Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] saveCategoryToFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -232,8 +234,8 @@ export const saveAllCategoriesToFirestore = async (categories: CategoryItem[]): 
       'saveAllCategories batch.commit'
     );
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error saving all categories to Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] saveAllCategoriesToFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -252,8 +254,8 @@ export const deleteCategoryFromFirestore = async (categoryId: string): Promise<b
       'deleteCategory deleteDoc'
     );
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error deleting category from Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] deleteCategoryFromFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -290,8 +292,8 @@ export const fetchProductsFromFirestore = async (): Promise<Product[]> => {
     });
 
     return docs;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error fetching products from Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] fetchProductsFromFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -321,8 +323,8 @@ export const saveProductToFirestore = async (product: Product): Promise<boolean>
       'saveProduct setDoc'
     );
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error saving product to Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] saveProductToFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -361,8 +363,8 @@ export const saveAllProductsToFirestore = async (products: Product[]): Promise<b
       );
     }
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error saving all products to Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] saveAllProductsToFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -381,8 +383,8 @@ export const deleteProductFromFirestore = async (productId: string): Promise<boo
       'deleteProduct deleteDoc'
     );
     return true;
-  } catch (err) {
-    console.error('[SOFYRA Firebase] Error deleting product from Firestore:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] deleteProductFromFirestore failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
     throw err;
   }
 };
@@ -545,7 +547,11 @@ export const fetchHomepageFromFirestore = async (): Promise<HomepageContent | nu
 
   try {
     const docRef = doc(db, 'siteContent', 'homepage');
-    const snap = await getDoc(docRef);
+    const snap = await withFirestoreTimeout(
+      () => getDoc(docRef),
+      20000,
+      'fetchHomepage getDoc'
+    );
     if (!snap.exists()) {
       return null;
     }
@@ -563,7 +569,11 @@ export const saveHomepageToFirestore = async (content: HomepageContent): Promise
   try {
     const docRef = doc(db, 'siteContent', 'homepage');
     const cleanData = JSON.parse(JSON.stringify(content));
-    await setDoc(docRef, cleanData, { merge: true });
+    await withFirestoreTimeout(
+      () => setDoc(docRef, cleanData, { merge: true }),
+      20000,
+      'saveHomepage setDoc'
+    );
     return true;
   } catch (err) {
     console.warn('[SOFYRA Firebase] Error saving homepage to Firestore:', err);
@@ -772,7 +782,11 @@ export const loginAdminWithFirebaseAuth = async (
     const db = getFirebaseDb();
     if (db) {
       try {
-        const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+        const adminSnap = await withFirestoreTimeout(
+          () => getDoc(doc(db, 'admins', user.uid)),
+          10000,
+          'loginAdmin getDoc'
+        );
         if (adminSnap.exists() && adminSnap.data()?.role !== 'admin') {
           return { success: false, error: 'This account does not have administrative privileges.' };
         }
@@ -808,19 +822,27 @@ export const checkFirestoreAdminExists = async (): Promise<{ hasAdmin: boolean; 
   if (!db) return { hasAdmin: false };
 
   try {
-    const configSnap = await getDoc(doc(db, 'siteContent', 'adminConfig'));
+    const configSnap = await withFirestoreTimeout(
+      () => getDoc(doc(db, 'siteContent', 'adminConfig')),
+      20000,
+      'checkFirestoreAdminExists getDoc'
+    );
     if (configSnap.exists() && configSnap.data()?.hasAdmin) {
       return { hasAdmin: true, email: configSnap.data()?.masterAdminEmail || null };
     }
 
     const adminsCol = collection(db, 'admins');
-    const adminDocs = await getDocs(adminsCol);
+    const adminDocs = await withFirestoreTimeout(
+      () => getDocs(adminsCol),
+      20000,
+      'checkFirestoreAdminExists getDocs'
+    );
     if (!adminDocs.empty) {
       const first = adminDocs.docs[0].data();
       return { hasAdmin: true, email: first.email || null };
     }
-  } catch (err) {
-    console.warn('[SOFYRA Firebase] Check admin in Firestore error:', err);
+  } catch (err: any) {
+    console.error('[SOFYRA Firebase] checkFirestoreAdminExists failed:', { name: err?.name, code: err?.code, message: err?.message, raw: err });
   }
 
   return { hasAdmin: false };
