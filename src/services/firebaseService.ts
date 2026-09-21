@@ -79,9 +79,15 @@ export const initFirebase = (): {
     const rawDbId = (firebaseConfig.firestoreDatabaseId || '').trim();
     const isCustomDb = Boolean(rawDbId && rawDbId !== '(default)' && rawDbId !== 'default');
     if (!dbInstance) {
-      dbInstance = isCustomDb
-        ? initializeFirestore(appInstance, { experimentalForceLongPolling: true }, rawDbId)
-        : initializeFirestore(appInstance, { experimentalForceLongPolling: true });
+      try {
+        dbInstance = isCustomDb
+          ? initializeFirestore(appInstance, { experimentalForceLongPolling: true }, rawDbId)
+          : initializeFirestore(appInstance, { experimentalForceLongPolling: true });
+      } catch {
+        dbInstance = isCustomDb
+          ? getFirestore(appInstance, rawDbId)
+          : getFirestore(appInstance);
+      }
     }
 
     if (!isFirebaseInitLogged) {
