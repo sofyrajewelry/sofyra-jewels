@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import {
   getFirestore,
+  initializeFirestore,
   collection,
   getDocs,
   getDoc,
@@ -77,9 +78,11 @@ export const initFirebase = (): {
     }
     const rawDbId = (firebaseConfig.firestoreDatabaseId || '').trim();
     const isCustomDb = Boolean(rawDbId && rawDbId !== '(default)' && rawDbId !== 'default');
-    dbInstance = isCustomDb
-      ? getFirestore(appInstance, rawDbId)
-      : getFirestore(appInstance);
+    if (!dbInstance) {
+      dbInstance = isCustomDb
+        ? initializeFirestore(appInstance, { experimentalForceLongPolling: true }, rawDbId)
+        : initializeFirestore(appInstance, { experimentalForceLongPolling: true });
+    }
 
     if (!isFirebaseInitLogged) {
       isFirebaseInitLogged = true;

@@ -233,20 +233,19 @@ export const storageService = {
       }
     } catch (fbErr) {
       console.error('[SOFYRA Storage] Firestore products read error:', fbErr);
-      throw fbErr;
     }
-    return [];
+    return this.getProducts();
   },
 
   getProducts(): Product[] {
-    if (cachedProducts) {
+    if (cachedProducts && cachedProducts.length > 0) {
       return cachedProducts;
     }
     try {
       const stored = localStorage.getItem(PRODUCTS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           cachedProducts = parsed;
           return parsed;
         }
@@ -254,7 +253,8 @@ export const storageService = {
     } catch (e) {
       console.warn('Storage read error', e);
     }
-    return [];
+    cachedProducts = INITIAL_PRODUCTS;
+    return INITIAL_PRODUCTS;
   },
 
   getProductBySlug(slug: string): Product | undefined {
@@ -672,26 +672,26 @@ export const storageService = {
       }
     } catch (fbErr) {
       console.error('[SOFYRA Storage] Firestore categories read error:', fbErr);
-      throw fbErr;
     }
-    return [];
+    return this.getCategories();
   },
 
   getCategories(): CategoryHierarchyItem[] {
-    if (cachedCategories) {
+    if (cachedCategories && cachedCategories.length > 0) {
       return cachedCategories;
     }
     try {
       const stored = localStorage.getItem(CATEGORIES_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           cachedCategories = parsed;
           return parsed;
         }
       }
     } catch {}
-    return [];
+    cachedCategories = DEFAULT_CATEGORIES;
+    return DEFAULT_CATEGORIES;
   },
 
   getCategoriesHierarchy(): CategoryHierarchyItem[] {
