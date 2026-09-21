@@ -48,7 +48,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({ categories: homepage
   });
 
   useEffect(() => {
-    // Initial fetch from backend/Firestore
+    // Initial fetch from backend
     storageService.fetchCategories().then(stored => {
       if (stored && stored.length > 0) {
         setCategoryItems(stored);
@@ -72,9 +72,9 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({ categories: homepage
     };
   }, []);
 
-  // Map the 4 core categories to dynamic Firestore / storage data
+  // Map the 4 core categories to dynamic storage data
   const displayCategories = CORE_CATEGORIES.map((core) => {
-    // 1. Check for matching category in Firestore / storage
+    // 1. Check for matching category in storage
     const matchedCategory = categoryItems.find(
       c => c.slug?.toLowerCase() === core.slug || 
            c.name?.toLowerCase() === core.slug || 

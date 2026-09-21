@@ -131,7 +131,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         if (cats) setCategories(cats);
       })
       .catch(err => {
-        console.error('[SOFYRA Admin] Failed to fetch categories from Firestore:', err);
+        console.error('[SOFYRA Admin] Failed to fetch categories:', err);
       });
 
     const handleCategoriesUpdated = () => {
@@ -504,7 +504,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         });
       }
 
-      // Actual Firestore save successfully completes!
+      // Actual save successfully completes!
       setProductSaveStatus('saved');
       onRefreshProducts();
       setSuccessToast(`"${productForm.name}" saved successfully.`);
@@ -1326,14 +1326,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         Full-Colour Enabled
                       </span>
                       <span className="px-2 py-0.5 bg-stone-100 text-stone-700 border border-stone-200 text-[9px] uppercase tracking-wider font-mono">
-                        Firebase Storage
+                        Persistent Storage
                       </span>
                     </div>
                     <h4 className="font-editorial text-xl uppercase tracking-wider text-black">
                       About SOFYRA — Our Atelier Philosophy
                     </h4>
                     <p className="text-xs text-stone-500 font-light mt-1">
-                      Manage the editorial portrait and philosophy displayed on the homepage and about page. Full-colour uploaded images appear with zero grayscale or monochrome filters. Stored permanently in Firebase Storage and Firestore.
+                      Manage the editorial portrait and philosophy displayed on the homepage and about page. Full-colour uploaded images appear with zero grayscale or monochrome filters. Stored permanently in backend storage and database.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1344,7 +1344,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         try {
                           await storageService.saveHomepageContent(homepageForm);
                           await onRefreshHomepageContent();
-                          setSuccessToast('About SOFYRA image & content saved to Firebase!');
+                          setSuccessToast('About SOFYRA image & content saved!');
                           setTimeout(() => setSuccessToast(null), 3500);
                         } catch (err: any) {
                           alert('Failed to save About SOFYRA: ' + (err.message || 'Error occurred'));
@@ -1391,7 +1391,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                           Editorial Portrait Image (16:9 Landscape Aspect Ratio)
                         </label>
                         <span className="text-[10px] text-stone-400 uppercase tracking-widest font-mono">
-                          Firebase Storage & Firestore
+                          Persistent Storage & Database
                         </span>
                       </div>
 
@@ -1410,7 +1410,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                           setHomepageForm(updated);
                           await storageService.saveHomepageContent(updated);
                           await onRefreshHomepageContent();
-                          setSuccessToast('About SOFYRA image uploaded and saved to Firebase');
+                          setSuccessToast('About SOFYRA image uploaded and saved');
                           setTimeout(() => setSuccessToast(null), 3000);
                         }}
                         aspectRatio="video"
@@ -1463,7 +1463,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                             try {
                               await storageService.saveHomepageContent(homepageForm);
                               await onRefreshHomepageContent();
-                              setSuccessToast('Changes saved to Firebase Storage & Firestore!');
+                              setSuccessToast('Changes saved successfully!');
                               setTimeout(() => setSuccessToast(null), 3000);
                             } catch (err: any) {
                               alert('Save error: ' + (err.message || 'Unknown'));
@@ -1605,7 +1605,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         <span>Persistence Guarantee</span>
                       </div>
                       <p className="leading-relaxed">
-                        Uploaded full-colour images are saved directly to Firebase Storage and Firestore. Your image will remain saved across browser refresh, logins, product updates, and category changes.
+                        Uploaded full-colour images are saved directly to persistent storage. Your image will remain saved across browser refresh, logins, product updates, and category changes.
                       </p>
                     </div>
                   </div>

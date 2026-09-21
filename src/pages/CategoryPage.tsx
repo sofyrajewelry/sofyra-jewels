@@ -16,7 +16,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   categories: homepageCategories,
   onNavigate
 }) => {
-  // 1. Fetch dynamic categories from storageService (synced with Firestore)
+  // 1. Fetch dynamic categories from storageService
   const allCategories: CategoryItem[] = useMemo(() => {
     return storageService.getCategories();
   }, []);

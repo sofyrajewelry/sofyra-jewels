@@ -181,6 +181,19 @@ export const apiClient = {
     }
   },
 
+  async deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      console.error('API deleteProduct error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
   // 4. Orders
   async getOrders(): Promise<Order[] | null> {
     try {
@@ -335,6 +348,19 @@ export const apiClient = {
       });
       return { success: res.ok };
     } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/categories/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      console.error('API deleteCategory error:', e);
       return { success: false, error: e.message };
     }
   },

@@ -94,7 +94,7 @@ export const ProductGalleryManager: React.FC<ProductGalleryManagerProps> = ({
     });
   };
 
-  // Upload file to server/Firebase and retrieve permanent persistent URL
+  // Upload file to server and retrieve permanent persistent URL
   const processAndUploadFile = async (file: File): Promise<string> => {
     const compressedBlob = await compressImageToBlob(file);
     const uploadRes = await apiClient.uploadImage(compressedBlob, file.name);

@@ -138,7 +138,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
 
     try {
       await storageService.saveCategory(categoryItem);
-      // Actual Firestore save successfully completed!
+      // Actual save successfully completed!
       setSaveStatus('saved');
       const allUpdated = storageService.getCategories();
       setItems(allUpdated);
@@ -179,7 +179,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
         const all = storageService.getCategories();
         setItems(all);
         onCategoriesUpdated(all);
-        showSuccess(`Category "${cat.name}" removed from Firestore.`);
+        showSuccess(`Category "${cat.name}" deleted.`);
       } catch (err) {
         console.error('Failed to delete category:', err);
       }
@@ -205,7 +205,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
     try {
       await storageService.saveCategories(reordered);
       onCategoriesUpdated(reordered);
-      showSuccess('Category display order updated and synced to Firestore.');
+      showSuccess('Category display order updated.');
     } catch (err) {
       console.error('Failed to update category order:', err);
     }
@@ -228,7 +228,7 @@ export const CategoriesManager: React.FC<CategoriesManagerProps> = ({
             Category Management
           </h3>
           <p className="text-xs text-stone-500 font-light mt-0.5">
-            Every product belongs to exactly one category. All categories and hero banners sync with Firestore.
+            Every product belongs to exactly one category. All categories and hero banners are persistently saved.
           </p>
         </div>
 

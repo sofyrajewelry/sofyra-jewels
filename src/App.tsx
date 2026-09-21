@@ -174,7 +174,7 @@ export default function App() {
         if (prods) setProducts(prods);
       })
       .catch(err => {
-        console.error('[SOFYRA App] Failed to fetch products from Firestore, keeping cached products:', err);
+        console.error('[SOFYRA App] Failed to fetch products, keeping cached products:', err);
       });
     storageService.fetchReviews().then(revs => {
       if (revs && revs.length > 0) setReviews(revs);
@@ -217,7 +217,7 @@ export default function App() {
       const prods = await storageService.fetchProducts();
       if (prods) setProducts(prods);
     } catch (err) {
-      console.error('[SOFYRA App] Error refreshing products from Firestore, keeping current products:', err);
+      console.error('[SOFYRA App] Error refreshing products, keeping current products:', err);
     }
   };
 
