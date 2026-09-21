@@ -98,13 +98,27 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({ categories: homepage
     // 3. Check homepage content config
     const hpCategory = homepageCategories?.[core.slug];
 
-    const image = (
-      hpCategory?.image ||
-      matchedCategory?.heroImage ||
-      matchedCategory?.image ||
-      subcategoryImage ||
-      core.defaultImage
-    ).trim();
+    // Priority: custom uploaded/saved category image -> custom homepage image -> subcategory image -> default image
+    const isCustom = (url?: string) => Boolean(url && (url.startsWith('/uploads/') || url.startsWith('data:')));
+
+    let resolvedImage = '';
+    if (isCustom(matchedCategory?.heroImage)) {
+      resolvedImage = matchedCategory!.heroImage!;
+    } else if (isCustom(matchedCategory?.image)) {
+      resolvedImage = matchedCategory!.image!;
+    } else if (isCustom(hpCategory?.image)) {
+      resolvedImage = hpCategory!.image!;
+    } else {
+      resolvedImage = (
+        matchedCategory?.heroImage ||
+        matchedCategory?.image ||
+        hpCategory?.image ||
+        subcategoryImage ||
+        core.defaultImage
+      );
+    }
+
+    const image = (resolvedImage || core.defaultImage).trim();
 
     const name = (
       hpCategory?.name ||

@@ -124,6 +124,8 @@ export interface Order {
   subtotal: number;
   shippingFee: number;
   discountAmount?: number;
+  discountCode?: string;
+  discountPercent?: number;
   giftCharges?: number;
   giftNote?: string;
   hasGiftWrap?: boolean;
@@ -307,4 +309,13 @@ export interface AboutSofyraConfig {
   paragraph1?: string;
   paragraph2?: string;
   paragraph3?: string;
+}
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  percentage: number;
+  enabled: boolean;
+  description?: string;
+  createdAt?: string;
 }

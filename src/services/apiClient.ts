@@ -1,4 +1,4 @@
-import { HomepageContent, Product, Order, CustomerReview } from '../types';
+import { HomepageContent, Product, Order, CustomerReview, DiscountCode } from '../types';
 
 const ADMIN_TOKEN_KEY = 'sofyra_admin_session_token';
 
@@ -625,6 +625,51 @@ export const apiClient = {
       return { success: res.ok, error: data.error };
     } catch (e: any) {
       return { success: false, error: e.message };
+    }
+  },
+
+  // Discounts
+  async getDiscounts(): Promise<DiscountCode[] | null> {
+    try {
+      const res = await fetch('/api/discounts');
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      console.error('API getDiscounts error:', e);
+      return null;
+    }
+  },
+
+  async validateDiscount(code: string, subtotal: number): Promise<{ valid: boolean; code?: string; percentage?: number; discountAmount?: number; error?: string }> {
+    try {
+      const res = await fetch('/api/discounts/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal })
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { valid: false, error: 'Could not validate discount code. Please try again.' };
+    }
+  },
+
+  async saveDiscounts(discounts: DiscountCode[]): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/discounts', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(discounts)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, error: errData.error || 'Failed to save discounts' };
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Network error' };
     }
   }
 };

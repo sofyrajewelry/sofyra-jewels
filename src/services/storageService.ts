@@ -1,4 +1,4 @@
-import { Product, Order, CustomerReview, ProductCategory, HomepageContent, CategoryItem, CategoryHierarchyItem, WornByYouItem, ContactInfo, SiteSettings, AdvantagesSectionConfig } from '../types';
+import { Product, Order, CustomerReview, ProductCategory, HomepageContent, CategoryItem, CategoryHierarchyItem, WornByYouItem, ContactInfo, SiteSettings, AdvantagesSectionConfig, DiscountCode } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_REVIEWS, DEFAULT_HOMEPAGE_CONTENT, DEFAULT_CATEGORIES, DEFAULT_WORN_BY_YOU, DEFAULT_CONTACT_INFO, DEFAULT_SITE_SETTINGS } from '../data/initialProducts';
 import { adminAuthService } from './adminAuthService';
 import { apiClient } from './apiClient';
@@ -11,6 +11,17 @@ const CATEGORIES_KEY = 'sofyra_categories_v1';
 const WORN_BY_YOU_KEY = 'sofyra_worn_by_you_v1';
 const CONTACT_INFO_KEY = 'sofyra_contact_info_v1';
 const SITE_SETTINGS_KEY = 'sofyra_site_settings_v1';
+const DISCOUNTS_KEY = 'sofyra_discounts_v1';
+
+const INITIAL_DISCOUNTS: DiscountCode[] = [
+  {
+    id: 'disc-welcome10',
+    code: 'WELCOME10',
+    percentage: 10,
+    enabled: true,
+    description: '10% off entire order'
+  }
+];
 
 // Initial sample orders
 const INITIAL_ORDERS: Order[] = [
@@ -76,6 +87,7 @@ let cachedCategories: CategoryHierarchyItem[] | null = null;
 let cachedWornByYou: WornByYouItem[] | null = null;
 let cachedContactInfo: ContactInfo | null = null;
 let cachedSiteSettings: SiteSettings | null = null;
+let cachedDiscounts: DiscountCode[] | null = null;
 
 export const storageService = {
   assertAdminPermission(action: string) {
@@ -891,6 +903,81 @@ export const storageService = {
       localStorage.setItem(HOMEPAGE_KEY, JSON.stringify(DEFAULT_HOMEPAGE_CONTENT));
     } catch {}
     apiClient.saveHomepage(DEFAULT_HOMEPAGE_CONTENT).catch(console.error);
+  },
+
+  // -------------------------------------------------------------------------
+  // DISCOUNT CODES
+  // -------------------------------------------------------------------------
+  async fetchDiscounts(): Promise<DiscountCode[]> {
+    try {
+      const serverDiscounts = await apiClient.getDiscounts();
+      if (Array.isArray(serverDiscounts)) {
+        cachedDiscounts = serverDiscounts;
+        try {
+          localStorage.setItem(DISCOUNTS_KEY, JSON.stringify(serverDiscounts));
+        } catch {}
+        return serverDiscounts;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch discounts from server', e);
+    }
+    return this.getDiscounts();
+  },
+
+  getDiscounts(): DiscountCode[] {
+    if (cachedDiscounts) return cachedDiscounts;
+    try {
+      const stored = localStorage.getItem(DISCOUNTS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          cachedDiscounts = parsed;
+          return parsed;
+        }
+      }
+    } catch {}
+    cachedDiscounts = INITIAL_DISCOUNTS;
+    return INITIAL_DISCOUNTS;
+  },
+
+  async validateDiscount(code: string, subtotal: number): Promise<{ valid: boolean; code?: string; percentage?: number; discountAmount?: number; error?: string }> {
+    if (!code || !code.trim()) {
+      return { valid: false, error: 'Please enter a discount code' };
+    }
+
+    try {
+      const result = await apiClient.validateDiscount(code, subtotal);
+      return result;
+    } catch {
+      // Fallback local validation
+      const discounts = this.getDiscounts();
+      const clean = code.trim().toUpperCase();
+      const matched = discounts.find(d => d.code.toUpperCase() === clean && d.enabled !== false);
+      if (matched) {
+        const percentage = matched.percentage || 10;
+        const discountAmount = Math.round((subtotal * percentage) / 100);
+        return {
+          valid: true,
+          code: matched.code,
+          percentage,
+          discountAmount
+        };
+      }
+      return { valid: false, error: 'Invalid or expired discount code' };
+    }
+  },
+
+  saveAllDiscounts(discounts: DiscountCode[]): DiscountCode[] {
+    this.assertAdminPermission('manage discount codes');
+    cachedDiscounts = discounts;
+    try {
+      localStorage.setItem(DISCOUNTS_KEY, JSON.stringify(discounts));
+      window.dispatchEvent(new CustomEvent('sofyra:discounts-updated'));
+    } catch (e) {
+      console.error(e);
+    }
+    apiClient.saveDiscounts(discounts).catch(console.error);
+    return discounts;
   },
 
   exportAllData(): string {

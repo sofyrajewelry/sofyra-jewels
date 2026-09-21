@@ -271,7 +271,18 @@ interface StoreData {
   siteSettings: any;
   orders: any[];
   reviews: any[];
+  discounts?: any[];
 }
+
+const DEFAULT_DISCOUNTS = [
+  {
+    id: 'disc-welcome10',
+    code: 'WELCOME10',
+    percentage: 10,
+    enabled: true,
+    description: '10% off entire order'
+  }
+];
 
 const DEFAULT_STORE: StoreData = {
   homepage: {
@@ -326,7 +337,8 @@ const DEFAULT_STORE: StoreData = {
   contactInfo: DEFAULT_CONTACT_INFO,
   siteSettings: DEFAULT_SITE_SETTINGS,
   orders: [],
-  reviews: DEFAULT_REVIEWS
+  reviews: DEFAULT_REVIEWS,
+  discounts: DEFAULT_DISCOUNTS
 };
 
 function checkImageExists(url: string, mediaStore: Record<string, MediaRecord>): boolean {
@@ -514,7 +526,8 @@ function readStore(): StoreData {
         contactInfo: parsed.contactInfo ? { ...DEFAULT_CONTACT_INFO, ...parsed.contactInfo } : DEFAULT_CONTACT_INFO,
         siteSettings: parsed.siteSettings ? { ...DEFAULT_SITE_SETTINGS, ...parsed.siteSettings } : DEFAULT_SITE_SETTINGS,
         orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-        reviews: Array.isArray(parsed.reviews) ? parsed.reviews : DEFAULT_REVIEWS
+        reviews: Array.isArray(parsed.reviews) ? parsed.reviews : DEFAULT_REVIEWS,
+        discounts: Array.isArray(parsed.discounts) && parsed.discounts.length > 0 ? parsed.discounts : DEFAULT_DISCOUNTS
       };
 
       if (migrateBrokenImages(store)) {
@@ -946,21 +959,49 @@ app.post('/api/categories', requireAdmin, (req, res) => {
   const id = newCat.id || `cat-${Date.now()}`;
   const slug = newCat.slug || newCat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   
+  const existingIdx = store.categories.findIndex((c: any) => c.id === id || c.slug === slug);
+  const existing = existingIdx >= 0 ? store.categories[existingIdx] : {};
+
+  const heroImage = newCat.heroImage !== undefined ? newCat.heroImage : (newCat.image || existing.heroImage || '');
+  const image = newCat.image !== undefined ? newCat.image : (newCat.heroImage || existing.image || '');
+
   const categoryItem = {
+    ...existing,
+    ...newCat,
     id,
     name: newCat.name,
     slug,
-    description: newCat.description || '',
-    image: newCat.image || '',
-    subcategories: Array.isArray(newCat.subcategories) ? newCat.subcategories : []
+    heroImage,
+    image,
+    description: newCat.description !== undefined ? newCat.description : (existing.description || ''),
+    eyebrowText: newCat.eyebrowText || existing.eyebrowText || 'SOFYRA FINE COLLECTION',
+    heroTitle: newCat.heroTitle || existing.heroTitle || newCat.name.toUpperCase(),
+    heroSubtitle: newCat.heroSubtitle !== undefined ? newCat.heroSubtitle : existing.heroSubtitle,
+    tagline: newCat.tagline !== undefined ? newCat.tagline : existing.tagline,
+    displayOrder: newCat.displayOrder !== undefined ? Number(newCat.displayOrder) : (existing.displayOrder || 1),
+    order: newCat.order !== undefined ? Number(newCat.order) : (existing.order || 1),
+    enabled: newCat.enabled !== undefined ? newCat.enabled : (existing.enabled !== undefined ? existing.enabled : true),
+    hidden: newCat.hidden !== undefined ? newCat.hidden : false,
+    subcategories: Array.isArray(newCat.subcategories) ? newCat.subcategories : (existing.subcategories || [])
   };
 
-  const existingIdx = store.categories.findIndex((c: any) => c.id === id || c.slug === slug);
   if (existingIdx >= 0) {
-    store.categories[existingIdx] = { ...store.categories[existingIdx], ...categoryItem };
+    store.categories[existingIdx] = categoryItem;
   } else {
     store.categories.push(categoryItem);
   }
+
+  // Also sync image to store.homepage.categories if it matches a core homepage category slug
+  if (store.homepage?.categories && (slug in store.homepage.categories)) {
+    const updatedImg = heroImage || image;
+    if (updatedImg) {
+      store.homepage.categories[slug] = {
+        ...store.homepage.categories[slug],
+        image: updatedImg
+      };
+    }
+  }
+
   writeStore(store);
 
   res.json({ success: true, category: categoryItem });
@@ -1112,6 +1153,32 @@ app.post('/api/orders', (req, res) => {
   }
 
   const store = readStore();
+
+  // If discountCode was applied, re-verify server-side to guarantee consistency
+  if (newOrder.discountCode) {
+    const discounts = store.discounts || DEFAULT_DISCOUNTS;
+    const cleanCode = String(newOrder.discountCode).trim().toUpperCase();
+    const matched = discounts.find(
+      (d: any) => d.code.toUpperCase() === cleanCode && d.enabled !== false
+    );
+
+    if (matched) {
+      const percentage = Number(matched.percentage) || 10;
+      const subtotal = Number(newOrder.subtotal) || 0;
+      const expectedDiscount = Math.round((subtotal * percentage) / 100);
+      newOrder.discountAmount = expectedDiscount;
+      newOrder.discountPercent = percentage;
+      newOrder.discountCode = matched.code;
+
+      const shippingFee = Number(newOrder.shippingFee) || 0;
+      const giftCharges = Number(newOrder.giftCharges) || 0;
+      newOrder.total = Math.max(0, subtotal - expectedDiscount) + shippingFee + giftCharges;
+    } else {
+      newOrder.discountAmount = 0;
+      newOrder.discountCode = undefined;
+    }
+  }
+
   store.orders = [newOrder, ...store.orders];
   writeStore(store);
 
@@ -1134,7 +1201,93 @@ app.patch('/api/orders/:id', requireAdmin, (req, res) => {
   res.json({ success: true, order: store.orders[index] });
 });
 
-// 9. Reviews
+// 9. Discount Codes
+app.get('/api/discounts', (req, res) => {
+  const store = readStore();
+  res.json(store.discounts || DEFAULT_DISCOUNTS);
+});
+
+app.post('/api/discounts/validate', (req, res) => {
+  const { code, subtotal } = req.body || {};
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ valid: false, error: 'Please enter a discount code' });
+  }
+
+  const store = readStore();
+  const discounts = store.discounts || DEFAULT_DISCOUNTS;
+  const cleanCode = code.trim().toUpperCase();
+
+  const matched = discounts.find(
+    (d: any) => d.code.toUpperCase() === cleanCode && d.enabled !== false
+  );
+
+  if (!matched) {
+    return res.status(200).json({
+      valid: false,
+      error: 'Invalid or expired discount code'
+    });
+  }
+
+  const percentage = Number(matched.percentage) || 10;
+  const numSubtotal = Number(subtotal) || 0;
+  const discountAmount = Math.round((numSubtotal * percentage) / 100);
+
+  return res.json({
+    valid: true,
+    code: matched.code,
+    percentage,
+    discountAmount
+  });
+});
+
+app.put('/api/discounts', requireAdmin, (req, res) => {
+  const discounts = req.body;
+  if (!Array.isArray(discounts)) {
+    return res.status(400).json({ error: 'Expected an array of discount codes' });
+  }
+
+  const store = readStore();
+  store.discounts = discounts;
+  writeStore(store);
+
+  res.json({ success: true, discounts: store.discounts });
+});
+
+app.post('/api/discounts', requireAdmin, (req, res) => {
+  const newDisc = req.body;
+  if (!newDisc || !newDisc.code) {
+    return res.status(400).json({ error: 'Discount code is required' });
+  }
+
+  const store = readStore();
+  const discounts = store.discounts || [...DEFAULT_DISCOUNTS];
+  const id = newDisc.id || `disc-${Date.now()}`;
+  const code = newDisc.code.trim().toUpperCase();
+  const percentage = Number(newDisc.percentage) || 10;
+  const enabled = newDisc.enabled !== false;
+
+  const item = {
+    id,
+    code,
+    percentage,
+    enabled,
+    description: newDisc.description || `${percentage}% off`
+  };
+
+  const existingIdx = discounts.findIndex((d: any) => d.id === id || d.code.toUpperCase() === code);
+  if (existingIdx >= 0) {
+    discounts[existingIdx] = { ...discounts[existingIdx], ...item };
+  } else {
+    discounts.push(item);
+  }
+
+  store.discounts = discounts;
+  writeStore(store);
+
+  res.json({ success: true, discount: item });
+});
+
+// 10. Reviews
 app.get('/api/reviews', (req, res) => {
   const store = readStore();
   res.json(store.reviews);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Order, CustomerReview, ProductCategory, HomepageContent, AdvantagesSectionConfig, CategoryHierarchyItem, WornByYouItem, ContactInfo, SiteSettings } from '../types';
+import { Product, Order, CustomerReview, ProductCategory, HomepageContent, AdvantagesSectionConfig, CategoryHierarchyItem, WornByYouItem, ContactInfo, SiteSettings, DiscountCode } from '../types';
 import { storageService } from '../services/storageService';
 import { adminAuthService, AdminUser } from '../services/adminAuthService';
 import { DEFAULT_HOMEPAGE_CONTENT, DEFAULT_ADVANTAGES_SECTION } from '../data/initialProducts';
@@ -94,6 +94,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [wornByYou, setWornByYou] = useState<WornByYouItem[]>(() => storageService.getWornByYou());
   const [contactInfo, setContactInfo] = useState<ContactInfo>(() => storageService.getContactInfo());
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => storageService.getSiteSettings());
+  const [discounts, setDiscounts] = useState<DiscountCode[]>(() => storageService.getDiscounts());
+  const [newDiscountCode, setNewDiscountCode] = useState('');
+  const [newDiscountPercent, setNewDiscountPercent] = useState<number>(10);
+  const [isSavingDiscounts, setIsSavingDiscounts] = useState(false);
 
   // Homepage Content Form State
   const [homepageForm, setHomepageForm] = useState<HomepageContent>(homepageContent);
@@ -2179,6 +2183,176 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 >
                   Change Password / Sign In as Different Admin
                 </button>
+              </div>
+            </div>
+
+            {/* Promo & Discount Codes Management */}
+            <div className="bg-white border border-stone-200 p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-stone-200 gap-2">
+                <div>
+                  <span className="text-[10px] tracking-[0.3em] uppercase text-stone-400 block font-medium">
+                    Storefront Promotions
+                  </span>
+                  <h3 className="font-editorial text-2xl uppercase tracking-wider text-black">
+                    Promo & Discount Codes
+                  </h3>
+                  <p className="text-xs text-stone-500 font-light mt-0.5">
+                    Configure customer discount codes (like WELCOME10 for 10% off). All discounts are verified securely on the server.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingDiscounts}
+                  onClick={async () => {
+                    setIsSavingDiscounts(true);
+                    try {
+                      await storageService.saveAllDiscounts(discounts);
+                      setSuccessToast('Discount codes saved and synchronized with server!');
+                      setTimeout(() => setSuccessToast(null), 3500);
+                    } catch (e: any) {
+                      alert('Failed to save discounts: ' + (e?.message || 'Error'));
+                    } finally {
+                      setIsSavingDiscounts(false);
+                    }
+                  }}
+                  className="px-5 py-2 bg-black text-white hover:bg-stone-800 text-xs uppercase tracking-wider font-semibold cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center gap-2 self-start sm:self-auto"
+                >
+                  {isSavingDiscounts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{isSavingDiscounts ? 'Saving...' : 'Save Discounts'}</span>
+                </button>
+              </div>
+
+              {/* Existing discounts table */}
+              <div className="space-y-3">
+                {discounts.map((disc, idx) => (
+                  <div
+                    key={disc.code}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border text-xs gap-3 ${
+                      disc.active ? 'bg-white border-stone-200' : 'bg-stone-50 border-stone-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-sm tracking-wider uppercase text-black bg-stone-100 px-2.5 py-1 border border-stone-300">
+                        {disc.code}
+                      </span>
+                      <div>
+                        <div className="font-semibold text-black">
+                          {disc.percentage}% Off Orders
+                        </div>
+                        {disc.description && (
+                          <div className="text-[11px] text-stone-500 font-light">
+                            {disc.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] uppercase font-bold text-stone-500">Discount %:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={disc.percentage}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            const updated = [...discounts];
+                            updated[idx] = { ...updated[idx], percentage: val };
+                            setDiscounts(updated);
+                          }}
+                          className="w-16 px-2 py-1 border border-stone-300 text-xs font-medium text-black focus:outline-none focus:border-black"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = [...discounts];
+                          updated[idx] = { ...updated[idx], active: !updated[idx].active };
+                          setDiscounts(updated);
+                        }}
+                        className={`px-3 py-1 text-[10px] uppercase tracking-wider font-semibold cursor-pointer border ${
+                          disc.active
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-stone-200 text-stone-600 border-stone-300 hover:bg-stone-300'
+                        }`}
+                      >
+                        {disc.active ? 'Active' : 'Disabled'}
+                      </button>
+
+                      {disc.code !== 'WELCOME10' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = discounts.filter((_, i) => i !== idx);
+                            setDiscounts(updated);
+                          }}
+                          className="text-stone-400 hover:text-rose-600 p-1 cursor-pointer"
+                          title="Delete code"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Discount Code */}
+              <div className="p-4 bg-[#FAF9F6] border border-stone-200 space-y-3">
+                <span className="text-[10px] tracking-wider uppercase text-stone-600 block font-bold">
+                  Create Additional Promo Code
+                </span>
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                  <input
+                    type="text"
+                    value={newDiscountCode}
+                    onChange={(e) => setNewDiscountCode(e.target.value.toUpperCase())}
+                    placeholder="Code name (e.g. SUMMER15)"
+                    className="flex-1 min-w-[140px] px-3 py-2 text-xs bg-white border border-stone-300 uppercase tracking-wider focus:outline-none focus:border-black"
+                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={newDiscountPercent}
+                      onChange={(e) => setNewDiscountPercent(Number(e.target.value))}
+                      placeholder="%"
+                      className="w-20 px-3 py-2 text-xs bg-white border border-stone-300 focus:outline-none focus:border-black"
+                    />
+                    <span className="text-xs font-bold text-stone-500">%</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!newDiscountCode.trim()}
+                    onClick={() => {
+                      const clean = newDiscountCode.trim().toUpperCase();
+                      if (!clean) return;
+                      if (discounts.some(d => d.code === clean)) {
+                        alert('Discount code already exists!');
+                        return;
+                      }
+                      const updated: DiscountCode[] = [
+                        ...discounts,
+                        {
+                          code: clean,
+                          percentage: newDiscountPercent || 10,
+                          active: true,
+                          description: `${newDiscountPercent}% off promotional code`
+                        }
+                      ];
+                      setDiscounts(updated);
+                      setNewDiscountCode('');
+                      setNewDiscountPercent(10);
+                    }}
+                    className="px-4 py-2 bg-stone-900 text-white text-xs uppercase tracking-wider hover:bg-black font-semibold disabled:opacity-40 cursor-pointer shrink-0 inline-flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Code</span>
+                  </button>
+                </div>
               </div>
             </div>
 

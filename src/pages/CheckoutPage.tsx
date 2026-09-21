@@ -62,9 +62,57 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
     paymentMethod: 'cod' as PaymentMethod
   });
 
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    percentage: number;
+    discountAmount: number;
+  } | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [isValidatingDiscount, setIsValidatingDiscount] = useState(false);
+
   const isBankTransfer = formData.paymentMethod === 'bank_transfer';
   const shippingFee = isBankTransfer ? 99 : 260;
-  const finalTotal = subtotal + (giftCharges || 0) + shippingFee;
+  const discountAmount = appliedDiscount
+    ? Math.round((subtotal * appliedDiscount.percentage) / 100)
+    : 0;
+  const finalTotal = Math.max(0, subtotal - discountAmount) + (giftCharges || 0) + shippingFee;
+
+  const handleApplyDiscount = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = discountCodeInput.trim().toUpperCase();
+    if (!cleanCode) {
+      setDiscountError('Please enter a discount code.');
+      return;
+    }
+    setDiscountError(null);
+    setIsValidatingDiscount(true);
+    try {
+      const res = await storageService.validateDiscount(cleanCode, subtotal);
+      if (res.valid && res.percentage) {
+        setAppliedDiscount({
+          code: res.code || cleanCode,
+          percentage: res.percentage,
+          discountAmount: res.discountAmount || Math.round((subtotal * res.percentage) / 100)
+        });
+        setDiscountError(null);
+        setDiscountCodeInput('');
+      } else {
+        setDiscountError(res.error || 'Invalid or expired discount code.');
+        setAppliedDiscount(null);
+      }
+    } catch (err: any) {
+      setDiscountError(err?.message || 'Could not apply discount.');
+    } finally {
+      setIsValidatingDiscount(false);
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountError(null);
+    setDiscountCodeInput('');
+  };
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -199,6 +247,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
           items: [...items],
           subtotal,
           shippingFee,
+          discountAmount: discountAmount > 0 ? discountAmount : undefined,
+          discountCode: appliedDiscount?.code,
+          discountPercent: appliedDiscount?.percentage,
           giftCharges: giftCharges > 0 ? giftCharges : undefined,
           giftNote: combinedGiftNotes || undefined,
           hasGiftWrap: hasAnyGiftWrap || undefined,
@@ -570,12 +621,80 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                   })}
                 </div>
 
+                {/* Promo / Discount Code Section */}
+                <div className="pt-3 border-t border-stone-200">
+                  <label htmlFor="checkout-discount-input" className="block text-[10px] tracking-[0.2em] uppercase font-bold text-stone-700 mb-2">
+                    Discount / Promo Code
+                  </label>
+                  {appliedDiscount ? (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-950 tracking-wider uppercase">
+                          {appliedDiscount.code}
+                        </span>
+                        <span className="text-[11px] text-emerald-800 font-medium">
+                          ({appliedDiscount.percentage}% OFF applied)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        id="btn-remove-discount"
+                        onClick={handleRemoveDiscount}
+                        className="text-[10px] uppercase tracking-wider text-rose-700 hover:text-rose-900 font-bold underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          id="checkout-discount-input"
+                          value={discountCodeInput}
+                          onChange={(e) => {
+                            setDiscountCodeInput(e.target.value.toUpperCase());
+                            if (discountError) setDiscountError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyDiscount();
+                            }
+                          }}
+                          placeholder="e.g. WELCOME10"
+                          className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 focus:outline-none focus:border-black uppercase tracking-wider text-stone-900"
+                        />
+                        <button
+                          type="button"
+                          id="btn-apply-discount"
+                          disabled={isValidatingDiscount || !discountCodeInput.trim()}
+                          onClick={() => handleApplyDiscount()}
+                          className="px-4 py-2 bg-black text-white text-[10px] tracking-[0.2em] uppercase font-semibold hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                        >
+                          {isValidatingDiscount ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
+                      {discountError && (
+                        <p className="text-[11px] text-rose-600 mt-1.5 font-medium">{discountError}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Breakdown */}
                 <div className="space-y-2 pt-3 border-t border-stone-200 text-xs text-stone-600">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span className="font-medium text-black">{formatPKR(subtotal)}</span>
                   </div>
+
+                  {appliedDiscount && discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-800 font-medium">
+                      <span>Discount ({appliedDiscount.code} &bull; {appliedDiscount.percentage}%)</span>
+                      <span className="font-semibold text-emerald-900">-{formatPKR(discountAmount)}</span>
+                    </div>
+                  )}
 
                   {giftCharges > 0 && (
                     <div className="flex justify-between text-stone-800">
