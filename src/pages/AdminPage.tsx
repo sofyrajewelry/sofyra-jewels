@@ -700,37 +700,39 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
       {/* VISIBLE DIAGNOSTIC ERROR DISPLAY */}
       {diagnosticError && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-          <div className="bg-red-50 border border-red-500 text-red-900 p-5 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 relative shadow-md">
-            <div className="bg-red-100 p-2.5 rounded-full text-red-600 shrink-0">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <h4 className="text-sm font-bold uppercase tracking-wider text-red-800">
-                [SOFYRA DIAGNOSTIC ERROR DETECTED]
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-xs">
-                <div>
-                  <span className="font-semibold text-red-700">Error Name:</span>{' '}
-                  <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.name}</code>
-                </div>
-                <div>
-                  <span className="font-semibold text-red-700">Error Code:</span>{' '}
-                  <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.code}</code>
-                </div>
-                <div className="md:col-span-3 mt-1">
-                  <span className="font-semibold text-red-700">Error Message:</span>{' '}
-                  <span className="font-medium">{diagnosticError.message}</span>
+        <div className="fixed top-0 inset-x-0 z-[100] px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-red-50 border border-red-500 text-red-900 p-5 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 relative shadow-md">
+              <div className="bg-red-100 p-2.5 rounded-full text-red-600 shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-red-800">
+                  [SOFYRA DIAGNOSTIC ERROR DETECTED]
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-xs">
+                  <div>
+                    <span className="font-semibold text-red-700">Error Name:</span>{' '}
+                    <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.name}</code>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-red-700">Error Code:</span>{' '}
+                    <code className="bg-red-100 px-1 py-0.5 rounded font-mono break-all">{diagnosticError.code}</code>
+                  </div>
+                  <div className="md:col-span-3 mt-1">
+                    <span className="font-semibold text-red-700">Error Message:</span>{' '}
+                    <span className="font-medium">{diagnosticError.message}</span>
+                  </div>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setDiagnosticError(null)}
+                className="absolute top-3 right-3 text-red-400 hover:text-red-700 cursor-pointer text-lg font-bold"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setDiagnosticError(null)}
-              className="absolute top-3 right-3 text-red-400 hover:text-red-700 cursor-pointer text-lg font-bold"
-            >
-              ✕
-            </button>
           </div>
         </div>
       )}
