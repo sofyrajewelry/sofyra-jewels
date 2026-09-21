@@ -31,7 +31,7 @@ export const firebaseConfig: FirebaseConfig = {
   storageBucket: cleanStorageBucket,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "49762632999",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:49762632999:web:7fca918b45d5624cc8d502",
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || "ai-studio-sofyrapremiumjew-fbdc17cf-7d27-4ed7-9175-b40eebaa21b3"
 };
 
 export const isFirebaseConfigured = (): boolean => {
