@@ -22,7 +22,9 @@ import {
   Check,
   Maximize2,
   X,
-  CreditCard
+  CreditCard,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface ProductDetailPageProps {
@@ -66,6 +68,59 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const giftCharges = (addPersonalNote ? 350 : 0) + (giftWrapOrder ? 520 : 0);
 
+  const productColors = Array.isArray(product.colors) && product.colors.length > 0
+    ? product.colors
+    : (Array.isArray(product.colorOptions) && product.colorOptions.length > 0 ? product.colorOptions : []);
+
+  // Swipe gesture detection refs for mobile
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const touchEndY = useRef<number | null>(null);
+  const minSwipeDistance = 35;
+
+  const handleNextImage = () => {
+    if (!product.images || product.images.length <= 1) return;
+    setActiveImageIndex((prev) => (prev + 1) % product.images.length);
+  };
+
+  const handlePrevImage = () => {
+    if (!product.images || product.images.length <= 1) return;
+    setActiveImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = null;
+    touchEndY.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndY.current = e.targetTouches[0].clientY;
+  };
+
+  const onTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const distanceX = touchStartX.current - touchEndX.current;
+    const distanceY = (touchStartY.current || 0) - (touchEndY.current || 0);
+
+    // Dominant horizontal swipe
+    if (Math.abs(distanceX) > Math.abs(distanceY) && Math.abs(distanceX) > minSwipeDistance) {
+      if (distanceX > 0) {
+        handleNextImage(); // Swiped left -> next
+      } else {
+        handlePrevImage(); // Swiped right -> prev
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+    touchEndX.current = null;
+    touchEndY.current = null;
+  };
+
   // Initialize variant defaults and scroll to top on product change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as any });
@@ -75,31 +130,36 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setPersonalNoteText('');
     setGiftWrapOrder(false);
 
+    const defaults: Record<string, string> = {};
+
     if (isRing) {
-      const defaults: Record<string, string> = {};
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach((v) => {
-          if (!v.name.toLowerCase().includes('size') && v.options.length > 0) {
+          const vName = (v.name || '').toLowerCase();
+          const isFinishOrMetal = vName.includes('metal') || vName.includes('tone') || vName.includes('finish');
+          if (!vName.includes('size') && !isFinishOrMetal && v.options.length > 0) {
             defaults[v.name] = v.options[0].name;
           }
         });
       }
       defaults['Size'] = 'Adjustable — One Size';
-      setSelectedOptions(defaults);
     } else if (product.variants && product.variants.length > 0) {
-      const defaults: Record<string, string> = {};
       product.variants.forEach((v) => {
-        if (v.options.length > 0) {
+        const vName = (v.name || '').toLowerCase();
+        const isFinishOrMetal = vName.includes('metal') || vName.includes('tone') || vName.includes('finish');
+        if (!isFinishOrMetal && v.options.length > 0) {
           defaults[v.name] = v.options[0].name;
         }
       });
-      setSelectedOptions(defaults);
-    } else if (product.plating) {
-      setSelectedOptions({ Finish: product.plating });
-    } else {
-      setSelectedOptions({});
     }
-  }, [product.id, product.slug, isRing]);
+
+    // Set default color if color options exist
+    if (productColors.length > 0) {
+      defaults['Color'] = productColors[0];
+    }
+
+    setSelectedOptions(defaults);
+  }, [product.id, product.slug, isRing, JSON.stringify(productColors)]);
 
   // Observer for sticky mobile purchase bar
   useEffect(() => {
@@ -273,14 +333,53 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
             )}
 
-            {/* Main Stage Image */}
-            <div className="relative flex-1 aspect-4/5 sm:aspect-square md:aspect-4/5 bg-stone-50 border border-stone-200 overflow-hidden group">
+            {/* Main Stage Image with Mobile Swipe */}
+            <div 
+              className="relative flex-1 aspect-4/5 sm:aspect-square md:aspect-4/5 bg-stone-50 border border-stone-200 overflow-hidden group touch-pan-y select-none"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
               <img
                 src={product.images[activeImageIndex] || product.images[0]}
                 alt={product.name}
                 className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
                 onClick={() => setIsZoomOpen(true)}
+                draggable={false}
               />
+
+              {/* Mobile Previous / Next Arrow Controls */}
+              {product.images && product.images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs border border-stone-200 text-stone-800 flex items-center justify-center sm:hidden shadow-sm active:scale-95 transition-all cursor-pointer"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs border border-stone-200 text-stone-800 flex items-center justify-center sm:hidden shadow-sm active:scale-95 transition-all cursor-pointer"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+
+                  {/* Image Counter Badge for Mobile */}
+                  <div className="absolute bottom-3 right-3 sm:hidden px-2.5 py-1 bg-black/70 backdrop-blur-xs text-white text-[10px] tracking-wider rounded-full font-medium pointer-events-none shadow-xs">
+                    {activeImageIndex + 1} / {product.images.length}
+                  </div>
+                </>
+              )}
 
               {/* Zoom Trigger Button */}
               <button
@@ -374,9 +473,53 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
             )}
 
-            {product.variants && product.variants.length > 0 ? (
+            {/* Color Options Selector */}
+            {productColors.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="tracking-[0.2em] uppercase text-black font-medium">
+                    Color:
+                  </span>
+                  <span className="text-stone-600 font-normal">
+                    {selectedOptions['Color'] || productColors[0]}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {productColors.map((colorName) => {
+                    const isSelected = (selectedOptions['Color'] || productColors[0]) === colorName;
+                    return (
+                      <button
+                        key={colorName}
+                        type="button"
+                        onClick={() => handleOptionSelect('Color', colorName)}
+                        className={`px-4 py-2 border text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? 'border-black bg-black text-white font-medium shadow-xs'
+                            : 'border-stone-300 bg-white text-stone-800 hover:border-black'
+                        }`}
+                      >
+                        {colorName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Variants */}
+            {product.variants && product.variants.length > 0 && (
               product.variants
-                .filter((variant) => !isRing || !variant.name.toLowerCase().includes('size'))
+                .filter((variant) => {
+                  const vName = (variant.name || '').toLowerCase();
+                  if (vName.includes('metal') || vName.includes('tone') || vName.includes('finish')) {
+                    return false;
+                  }
+                  if (isRing && vName.includes('size')) {
+                    return false;
+                  }
+                  return true;
+                })
                 .map((variant) => (
                   <div key={variant.id} className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
@@ -409,23 +552,21 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     </div>
                   </div>
                 ))
-            ) : product.material ? (
+            )}
+
+            {/* Material Section (Only shown if material is selected) */}
+            {product.material && (product.material === '925 Sterling Silver' || product.material === '18K Gold-Plated') && (
               <div className="space-y-1.5 text-xs">
                 <span className="tracking-[0.2em] uppercase text-black font-medium block">
-                  Material & Finish:
+                  Material
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="px-3.5 py-1.5 border border-stone-300 bg-stone-50 text-stone-800 text-xs">
+                  <span className="px-3.5 py-1.5 border border-stone-300 bg-stone-50 text-stone-800 text-xs font-medium">
                     {product.material}
                   </span>
-                  {product.plating && (
-                    <span className="px-3.5 py-1.5 border border-stone-300 bg-stone-50 text-stone-800 text-xs">
-                      {product.plating}
-                    </span>
-                  )}
                 </div>
               </div>
-            ) : null}
+            )}
 
             {/* 7. STOCK STATUS */}
             <div className="flex items-center justify-between pt-1">
@@ -702,16 +843,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 
                 {/* Specific Specs */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                  {product.material && (
+                  {product.material && product.material.trim() !== '' && (
                     <div className="p-3 bg-[#FAF9F6] border border-stone-200">
                       <span className="text-[10px] tracking-[0.2em] uppercase text-stone-400 block">Material</span>
-                      <span className="font-medium text-black">{product.material}</span>
+                      <span className="font-medium text-black">{product.material.trim()}</span>
                     </div>
                   )}
-                  {product.plating && (
+                  {product.plating && product.plating.trim() !== '' && (
                     <div className="p-3 bg-[#FAF9F6] border border-stone-200">
                       <span className="text-[10px] tracking-[0.2em] uppercase text-stone-400 block">Plating</span>
-                      <span className="font-medium text-black">{product.plating}</span>
+                      <span className="font-medium text-black">{product.plating.trim()}</span>
                     </div>
                   )}
                   {product.dimensions && (

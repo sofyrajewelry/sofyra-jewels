@@ -58,7 +58,9 @@ export interface Product {
   discountPercent?: number;
   description: string;
   details?: string[];
-  material: string;
+  material?: string;
+  colors?: string[];
+  colorOptions?: string[];
   plating?: string;
   stone?: string;
   dimensions?: string;

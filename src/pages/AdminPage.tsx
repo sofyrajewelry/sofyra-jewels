@@ -178,6 +178,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const [productSaveStatus, setProductSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [isGalleryUploading, setIsGalleryUploading] = useState(false);
   const [isQuickUploading, setIsQuickUploading] = useState(false);
+  const [productColorInput, setProductColorInput] = useState('');
   const [productForm, setProductForm] = useState<{
     name: string;
     subtitle: string;
@@ -197,6 +198,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     isBestseller: boolean;
     isFeatured: boolean;
     images: string[];
+    colors: string[];
   }>({
     name: '',
     subtitle: '',
@@ -205,7 +207,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     price: 3500,
     compareAtPrice: 0,
     description: '',
-    material: '925 Sterling Silver',
+    material: '',
     plating: '18K Gold Vermeil',
     stone: 'AAA Cubic Zirconia',
     dimensions: '',
@@ -217,7 +219,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     isFeatured: true,
     images: [
       'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=1200&auto=format&fit=crop'
-    ]
+    ],
+    colors: []
   });
 
   // Handle Admin Login
@@ -394,6 +397,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const handleOpenAddProduct = () => {
     setProductSaveStatus('idle');
     setEditingProduct(null);
+    setProductColorInput('');
     const activeCats = (categories || []).filter(c => c.enabled !== false && !c.hidden);
     const initialCat = activeCats[0]?.slug || categories[0]?.slug || 'rings';
     setProductForm({
@@ -402,11 +406,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       category: initialCat as ProductCategory,
       sku: `SOF-${Math.floor(1000 + Math.random() * 9000)}`,
       price: 3500,
-      compareAtPrice: 4200,
+      compareAtPrice: 0,
       description: '',
-      material: '925 Sterling Silver',
-      plating: '18K Yellow Gold',
-      stone: 'Cubic Zirconia (AAAAA grade)',
+      material: '',
+      plating: '',
+      stone: '',
       dimensions: '',
       careInfo: '',
       inStock: true,
@@ -416,7 +420,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       isFeatured: false,
       images: [
         'https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=1200&auto=format&fit=crop'
-      ]
+      ],
+      colors: []
     });
     setIsProductModalOpen(true);
   };
@@ -424,6 +429,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const handleOpenEditProduct = (prod: Product) => {
     setProductSaveStatus('idle');
     setEditingProduct(prod);
+    setProductColorInput('');
+    const existingColors = Array.isArray(prod.colors)
+      ? [...prod.colors]
+      : (Array.isArray(prod.colorOptions) ? [...prod.colorOptions] : []);
+
     setProductForm({
       name: prod.name,
       subtitle: prod.subtitle || '',
@@ -432,7 +442,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       price: prod.price,
       compareAtPrice: prod.compareAtPrice || 0,
       description: prod.description,
-      material: prod.material,
+      material: prod.material || '',
       plating: prod.plating || '',
       stone: prod.stone || '',
       dimensions: prod.dimensions || '',
@@ -442,7 +452,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       isNew: prod.isNew,
       isBestseller: prod.isBestseller,
       isFeatured: prod.isFeatured,
-      images: prod.images && prod.images.length > 0 ? [...prod.images] : []
+      images: prod.images && prod.images.length > 0 ? [...prod.images] : [],
+      colors: existingColors
     });
     setIsProductModalOpen(true);
   };
@@ -456,6 +467,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       if (cleanImages.length === 0) {
         cleanImages.push('https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=85&w=1200&auto=format&fit=crop');
       }
+
+      const cleanColors = productForm.colors.map(c => c.trim()).filter(Boolean);
+      const cleanMaterial = productForm.material ? productForm.material.trim() : undefined;
 
       const discountPercent =
         productForm.compareAtPrice > productForm.price
@@ -472,9 +486,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
           discountPercent,
           description: productForm.description,
-          material: productForm.material,
-          plating: productForm.plating,
-          stone: productForm.stone,
+          material: cleanMaterial,
+          colors: cleanColors,
+          colorOptions: cleanColors,
+          plating: productForm.plating || undefined,
+          stone: productForm.stone || undefined,
           dimensions: productForm.dimensions || undefined,
           careInfo: productForm.careInfo || undefined,
           inStock: productForm.inStock,
@@ -494,9 +510,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
           discountPercent,
           description: productForm.description,
-          material: productForm.material,
-          plating: productForm.plating,
-          stone: productForm.stone,
+          material: cleanMaterial,
+          colors: cleanColors,
+          colorOptions: cleanColors,
+          plating: productForm.plating || undefined,
+          stone: productForm.stone || undefined,
           dimensions: productForm.dimensions || undefined,
           careInfo: productForm.careInfo || undefined,
           inStock: productForm.inStock,
@@ -2626,31 +2644,143 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               {/* Materials & Details */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Core Material</label>
-                  <input
-                    type="text"
-                    value={productForm.material}
+                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Material</label>
+                  <select
+                    value={productForm.material || ''}
                     onChange={e => setProductForm({ ...productForm, material: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none"
-                  />
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="">-- No Material Selected --</option>
+                    <option value="925 Sterling Silver">925 Sterling Silver</option>
+                    <option value="18K Gold-Plated">18K Gold-Plated</option>
+                  </select>
+                  <p className="text-[10px] text-stone-500 font-light mt-1">
+                    Select material. If none selected, Material section is hidden on product page.
+                  </p>
                 </div>
                 <div>
-                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Plating</label>
+                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Plating (Optional)</label>
                   <input
                     type="text"
                     value={productForm.plating}
                     onChange={e => setProductForm({ ...productForm, plating: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none"
+                    placeholder="e.g. 18K Gold-Plated"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Stone Setting</label>
+                  <label className="block tracking-wider uppercase text-stone-700 mb-1 font-medium">Stone Setting (Optional)</label>
                   <input
                     type="text"
                     value={productForm.stone}
                     onChange={e => setProductForm({ ...productForm, stone: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none"
+                    placeholder="e.g. AAA Cubic Zirconia"
+                    className="w-full bg-[#FAF9F6] border border-stone-300 p-2.5 text-black focus:border-black focus:outline-none text-xs"
                   />
+                </div>
+              </div>
+
+              {/* Product Color Options */}
+              <div className="bg-[#FAF9F6] border border-stone-300 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block tracking-wider uppercase text-stone-800 text-xs font-semibold">
+                    Product Color Options (Optional)
+                  </label>
+                  <span className="text-[11px] text-stone-500 font-light">
+                    {productForm.colors.length} {productForm.colors.length === 1 ? 'color' : 'colors'} configured
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-600 font-light">
+                  Add available colors for this specific product (e.g. Gold, Silver, Rose Gold, Pink). Customers can select their preferred color on the product page. If no colors are added, no color selector will be shown.
+                </p>
+
+                {/* Current Color Chips */}
+                {productForm.colors.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {productForm.colors.map((c, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-stone-300 text-stone-800 text-xs tracking-wider uppercase font-medium shadow-2xs"
+                      >
+                        {c}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProductForm({
+                              ...productForm,
+                              colors: productForm.colors.filter((_, i) => i !== idx)
+                            });
+                          }}
+                          className="text-stone-400 hover:text-black cursor-pointer font-bold text-sm leading-none ml-1"
+                          aria-label={`Remove ${c}`}
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Color Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={productColorInput}
+                    onChange={e => setProductColorInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = productColorInput.trim();
+                        if (val && !productForm.colors.includes(val)) {
+                          setProductForm({
+                            ...productForm,
+                            colors: [...productForm.colors, val]
+                          });
+                          setProductColorInput('');
+                        }
+                      }
+                    }}
+                    placeholder="Type a color (e.g. Gold, Silver, Pink) and press Enter"
+                    className="flex-1 bg-white border border-stone-300 p-2 text-xs text-black focus:border-black focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = productColorInput.trim();
+                      if (val && !productForm.colors.includes(val)) {
+                        setProductForm({
+                          ...productForm,
+                          colors: [...productForm.colors, val]
+                        });
+                        setProductColorInput('');
+                      }
+                    }}
+                    className="px-4 py-2 bg-black text-white text-xs tracking-wider uppercase font-medium hover:bg-stone-800 cursor-pointer"
+                  >
+                    Add Color
+                  </button>
+                </div>
+
+                {/* Quick Add Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px] text-stone-500 font-light">
+                  <span>Quick Add:</span>
+                  {['Gold', 'Silver', 'Rose Gold', 'Pink', 'White Gold', 'Black'].map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        if (!productForm.colors.includes(preset)) {
+                          setProductForm({
+                            ...productForm,
+                            colors: [...productForm.colors, preset]
+                          });
+                        }
+                      }}
+                      className="px-2 py-0.5 border border-stone-200 bg-white text-stone-700 hover:border-black text-[10px] tracking-wide cursor-pointer"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
                 </div>
               </div>
 
