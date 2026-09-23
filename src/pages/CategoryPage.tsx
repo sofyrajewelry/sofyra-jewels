@@ -23,19 +23,24 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   // 2. Find matching category metadata
   const activeCategory = useMemo(() => {
+    const rawCatStr = typeof category === 'string'
+      ? category
+      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || 'rings');
+    const catSearchStr = String(rawCatStr).trim().toLowerCase();
+
     const slugMatch = allCategories.find(
-      c => c.slug.toLowerCase() === String(category).toLowerCase() ||
-           c.name.toLowerCase() === String(category).toLowerCase() ||
-           c.id.toLowerCase() === String(category).toLowerCase()
+      c => (c.slug || '').trim().toLowerCase() === catSearchStr ||
+           (c.name || '').trim().toLowerCase() === catSearchStr ||
+           (c.id || '').trim().toLowerCase() === catSearchStr
     );
     if (slugMatch) return slugMatch;
 
     // Fallback if not found in list
-    const name = String(category).replace(/-/g, ' ');
+    const name = catSearchStr.replace(/-/g, ' ');
     return {
-      id: `cat-${category}`,
+      id: `cat-${catSearchStr}`,
       name: name.charAt(0).toUpperCase() + name.slice(1),
-      slug: String(category).toLowerCase(),
+      slug: catSearchStr,
       eyebrowText: 'SOFYRA FINE COLLECTION',
       heroTitle: name.toUpperCase(),
       heroSubtitle: '',
@@ -54,14 +59,30 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   // 3. Filter products matching this category (single-category model, no subcategories)
   const categoryProducts = useMemo(() => {
-    const targetSlug = activeCategory.slug.toLowerCase();
-    const targetName = activeCategory.name.toLowerCase();
+    const rawCatStr = typeof category === 'string'
+      ? category
+      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || 'rings');
+    const targetSlug = (activeCategory.slug || '').trim().toLowerCase();
+    const targetName = (activeCategory.name || '').trim().toLowerCase();
+    const rawTarget = String(rawCatStr).trim().toLowerCase();
+
     return products.filter(p => {
-      const prodCat = (p.category || '').toLowerCase();
-      const prodSub = (p.subcategory || '').toLowerCase();
-      return prodCat === targetSlug || prodCat === targetName || prodSub === targetSlug || prodSub === targetName;
+      const prodCat = (p.category || '').trim().toLowerCase();
+      const prodSub = (p.subcategory || '').trim().toLowerCase();
+
+      // Ensure exact category matching (e.g. rings) and prevent returning all products
+      if (!prodCat && !prodSub) return false;
+
+      return (
+        prodCat === targetSlug ||
+        prodCat === targetName ||
+        prodCat === rawTarget ||
+        prodSub === targetSlug ||
+        prodSub === targetName ||
+        prodSub === rawTarget
+      );
     });
-  }, [products, activeCategory]);
+  }, [products, activeCategory, category]);
 
   return (
     <div className="bg-[#FAF9F6] min-h-screen pb-20">

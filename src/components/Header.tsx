@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                         <button
                           key={cat.id}
                           type="button"
-                          onClick={() => handleLinkClick('category', { category: cat.slug })}
+                          onClick={() => handleLinkClick('category', { category: cat.slug || cat.id })}
                           className="w-full text-left px-4 py-2 text-[11px] tracking-[0.2em] uppercase text-stone-700 hover:text-black hover:bg-stone-50 transition-colors block"
                         >
                           {cat.name}
@@ -293,7 +293,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => handleLinkClick('category', { category: cat.slug })}
+                      onClick={() => handleLinkClick('category', { category: cat.slug || cat.id })}
                       className="block text-left w-full text-sm tracking-[0.18em] uppercase text-stone-700 hover:text-black"
                     >
                       {cat.name}
