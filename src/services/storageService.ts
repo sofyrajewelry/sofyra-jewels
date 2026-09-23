@@ -551,9 +551,9 @@ export const storageService = {
     }
 
     if (productId) {
-      return reviews.filter(r => !r.productId || r.productId === productId);
+      return reviews.filter(r => Boolean(r.productId) && r.productId === productId);
     }
-    return reviews;
+    return reviews.filter(r => !r.productId || r.productId === 'homepage');
   },
 
   saveAllReviews(reviews: CustomerReview[]): CustomerReview[] {

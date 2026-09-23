@@ -43,10 +43,12 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
     .filter((r) => r.published !== false)
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
-  // Filter reviews if specific to a product, or show all if on homepage/general
+  // Strictly scope reviews:
+  // - Product Page (productId provided): ONLY reviews matching this exact productId
+  // - Homepage (!productId): ONLY reviews with no productId (or productId === 'homepage')
   const displayedReviews = productId
-    ? validReviews.filter((r) => r.productId === productId || !r.productId)
-    : validReviews;
+    ? validReviews.filter((r) => Boolean(r.productId) && r.productId === productId)
+    : validReviews.filter((r) => !r.productId || r.productId === 'homepage');
 
   // On the homepage (when !productId): if zero reviews exist, hide the section completely
   // (per requirement: no fake social proof or empty placeholder blocks on homepage)
