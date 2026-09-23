@@ -327,6 +327,8 @@ export default function App() {
             <ProductDetailPage
               product={activeProduct}
               allProducts={products}
+              reviews={reviews}
+              onReviewAdded={handleRefreshReviews}
               onNavigate={handleNavigate}
             />
           )}
