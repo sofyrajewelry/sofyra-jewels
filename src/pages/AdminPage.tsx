@@ -2027,6 +2027,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                                       Size: Adjustable — One Size
                                     </span>
                                   )}
+                                  {item.selectedVariantOptions &&
+  Object.entries(item.selectedVariantOptions)
+    .filter(([key]) => !isRingItem || !key.toLowerCase().includes('size'))
+    .map(([key, value]) => (
+      <span key={key} className="text-[10px] text-stone-500 block">
+        {key}: {value}
+      </span>
+    ))}
                                   {item.giftOptions?.hasPersonalNote && (
                                     <span className="text-[10px] text-stone-600 italic block">
                                       Note: "{item.giftOptions.personalNote || 'Personal Note'}" (+Rs. 350)
