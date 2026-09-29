@@ -322,43 +322,6 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                 >
                   All Jewellery
                 </button>
-                <div className="pl-3 space-y-3 pt-1 border-l-2 border-stone-200">
-                  <button
-                    type="button"
-                    onClick={() => handleLinkClick('category', { category: 'rings' })}
-                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
-                  >
-                    Rings
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLinkClick('category', { category: 'earrings' })}
-                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
-                  >
-                    Earrings
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLinkClick('category', { category: 'bracelets' })}
-                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
-                  >
-                    Bracelets
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLinkClick('category', { category: 'necklaces' })}
-                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
-                  >
-                    Necklaces
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLinkClick('category', { category: 'bangles' })}
-                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
-                  >
-                    Bangles
-                  </button>
-                </div>
               </div>
 
               <div className="pt-4 border-t border-stone-200">
