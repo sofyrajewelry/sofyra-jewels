@@ -195,6 +195,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     inStock: boolean;
     stockCount: number;
     isNew: boolean;
+    isSale: boolean;
+    salePrice: number;
     isBestseller: boolean;
     isFeatured: boolean;
     images: string[];
@@ -206,6 +208,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     sku: '',
     price: 3500,
     compareAtPrice: 0,
+    salePrice: 0,
+    isSale: false,
     description: '',
     material: '',
     plating: '18K Gold Vermeil',
@@ -416,6 +420,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       inStock: true,
       stockCount: 15,
       isNew: true,
+      isSale: false,
+      salePrice: 0,
       isBestseller: false,
       isFeatured: false,
       images: [
@@ -441,6 +447,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       sku: prod.sku || '',
       price: prod.price,
       compareAtPrice: prod.compareAtPrice || 0,
+      salePrice: prod.salePrice || 0,
+      isSale: Boolean(prod.isSale),
       description: prod.description,
       material: prod.material || '',
       plating: prod.plating || '',
@@ -449,7 +457,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       careInfo: prod.careInfo || '',
       inStock: prod.inStock,
       stockCount: prod.stockCount,
-      isNew: prod.isNew,
+      isNew: Boolean(prod.isNew),
       isBestseller: prod.isBestseller,
       isFeatured: prod.isFeatured,
       images: prod.images && prod.images.length > 0 ? [...prod.images] : [],
@@ -471,59 +479,53 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       const cleanColors = productForm.colors.map(c => c.trim()).filter(Boolean);
       const cleanMaterial = productForm.material ? productForm.material.trim() : undefined;
 
-      const discountPercent =
-        productForm.compareAtPrice > productForm.price
-            ? Math.round(((productForm.compareAtPrice - productForm.price) / productForm.compareAtPrice) * 100)
-            : undefined;
+      const isSale = Boolean(productForm.isSale);
+      const regularPrice = Number(productForm.price) || 0;
+      const salePriceNum = Number(productForm.salePrice) || 0;
+      const effectiveSalePrice = isSale && salePriceNum > 0 ? salePriceNum : undefined;
+
+      let discountPercent = undefined;
+      let finalCompareAtPrice = productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined;
+
+      if (effectiveSalePrice && effectiveSalePrice < regularPrice) {
+        discountPercent = Math.round(((regularPrice - effectiveSalePrice) / regularPrice) * 100);
+        if (!finalCompareAtPrice) {
+          finalCompareAtPrice = regularPrice;
+        }
+      } else if (finalCompareAtPrice && finalCompareAtPrice > regularPrice) {
+        discountPercent = Math.round(((finalCompareAtPrice - regularPrice) / finalCompareAtPrice) * 100);
+      }
+
+      const commonFields = {
+        name: productForm.name,
+        subtitle: productForm.subtitle,
+        category: productForm.category,
+        sku: productForm.sku || undefined,
+        price: regularPrice,
+        compareAtPrice: finalCompareAtPrice,
+        salePrice: effectiveSalePrice,
+        isSale: isSale,
+        isNew: Boolean(productForm.isNew),
+        discountPercent,
+        description: productForm.description,
+        material: cleanMaterial,
+        colors: cleanColors,
+        colorOptions: cleanColors,
+        plating: productForm.plating || undefined,
+        stone: productForm.stone || undefined,
+        dimensions: productForm.dimensions || undefined,
+        careInfo: productForm.careInfo || undefined,
+        inStock: productForm.inStock,
+        stockCount: Number(productForm.stockCount),
+        isBestseller: productForm.isBestseller,
+        isFeatured: productForm.isFeatured,
+        images: cleanImages
+      };
 
       if (editingProduct) {
-        await storageService.updateProduct(editingProduct.id, {
-          name: productForm.name,
-          subtitle: productForm.subtitle,
-          category: productForm.category,
-          sku: productForm.sku || undefined,
-          price: Number(productForm.price),
-          compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
-          discountPercent,
-          description: productForm.description,
-          material: cleanMaterial,
-          colors: cleanColors,
-          colorOptions: cleanColors,
-          plating: productForm.plating || undefined,
-          stone: productForm.stone || undefined,
-          dimensions: productForm.dimensions || undefined,
-          careInfo: productForm.careInfo || undefined,
-          inStock: productForm.inStock,
-          stockCount: Number(productForm.stockCount),
-          isNew: productForm.isNew,
-          isBestseller: productForm.isBestseller,
-          isFeatured: productForm.isFeatured,
-          images: cleanImages
-        });
+        await storageService.updateProduct(editingProduct.id, commonFields);
       } else {
-        await storageService.addProduct({
-          name: productForm.name,
-          subtitle: productForm.subtitle,
-          category: productForm.category,
-          sku: productForm.sku || undefined,
-          price: Number(productForm.price),
-          compareAtPrice: productForm.compareAtPrice ? Number(productForm.compareAtPrice) : undefined,
-          discountPercent,
-          description: productForm.description,
-          material: cleanMaterial,
-          colors: cleanColors,
-          colorOptions: cleanColors,
-          plating: productForm.plating || undefined,
-          stone: productForm.stone || undefined,
-          dimensions: productForm.dimensions || undefined,
-          careInfo: productForm.careInfo || undefined,
-          inStock: productForm.inStock,
-          stockCount: Number(productForm.stockCount),
-          isNew: productForm.isNew,
-          isBestseller: productForm.isBestseller,
-          isFeatured: productForm.isFeatured,
-          images: cleanImages
-        });
+        await storageService.addProduct(commonFields);
       }
 
       // Actual save successfully completes!
@@ -561,6 +563,50 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       }`
     );
     setTimeout(() => setSuccessToast(null), 4000);
+  };
+
+  const handleToggleNewArrival = async (prod: Product) => {
+    const nextState = !Boolean(prod.isNew);
+    await storageService.updateProduct(prod.id, { isNew: nextState });
+    onRefreshProducts();
+    setSuccessToast(`"${prod.name}" New Arrival: ${nextState ? 'ON' : 'OFF'}`);
+    setTimeout(() => setSuccessToast(null), 3000);
+  };
+
+  const handleToggleOnSale = async (prod: Product) => {
+    const nextState = !Boolean(prod.isSale);
+    const updates: Partial<Product> = { isSale: nextState };
+    if (nextState && (!prod.salePrice || prod.salePrice >= prod.price)) {
+      updates.salePrice = Math.round(prod.price * 0.85); // 15% off default
+      updates.compareAtPrice = prod.price;
+      updates.discountPercent = 15;
+    }
+    await storageService.updateProduct(prod.id, updates);
+    onRefreshProducts();
+    setSuccessToast(`"${prod.name}" On Sale: ${nextState ? 'ON' : 'OFF'}`);
+    setTimeout(() => setSuccessToast(null), 3000);
+  };
+
+  const handleUpdateSalePrice = async (prod: Product, newPrice: number | undefined) => {
+    if (newPrice !== undefined && newPrice > 0) {
+      const discount = prod.price > newPrice ? Math.round(((prod.price - newPrice) / prod.price) * 100) : undefined;
+      await storageService.updateProduct(prod.id, {
+        salePrice: newPrice,
+        isSale: true,
+        compareAtPrice: prod.compareAtPrice || prod.price,
+        discountPercent: discount
+      });
+      onRefreshProducts();
+      setSuccessToast(`"${prod.name}" Sale Price updated to PKR ${newPrice}`);
+    } else {
+      await storageService.updateProduct(prod.id, {
+        salePrice: undefined,
+        isSale: false
+      });
+      onRefreshProducts();
+      setSuccessToast(`"${prod.name}" Sale Price cleared`);
+    }
+    setTimeout(() => setSuccessToast(null), 3000);
   };
 
   const handleMoveBestseller = async (index: number, direction: 'up' | 'down') => {
@@ -1799,9 +1845,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     <th className="py-3.5 px-4">Product Details</th>
                     <th className="py-3.5 px-4">Category</th>
                     <th className="py-3.5 px-4">Price (PKR)</th>
+                    <th className="py-3.5 px-4 text-center">New Arrival</th>
+                    <th className="py-3.5 px-4 text-center">On Sale</th>
+                    <th className="py-3.5 px-4 text-center">Sale Price</th>
+                    <th className="py-3.5 px-4 text-center">Best Seller</th>
                     <th className="py-3.5 px-4">Stock</th>
-                    <th className="py-3.5 px-4 text-center">Best Seller (Homepage)</th>
-                    <th className="py-3.5 px-4">Badges</th>
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1835,24 +1883,85 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         {prod.category}
                       </td>
                       <td className="py-3 px-4 font-mono font-medium">
-                        {formatPKR(prod.price)}
-                        {prod.compareAtPrice && (
-                          <span className="block text-[10px] text-stone-400 line-through">
-                            {formatPKR(prod.compareAtPrice)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {prod.inStock ? (
-                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-                            {prod.stockCount} in stock
-                          </span>
+                        {prod.isSale && typeof prod.salePrice === 'number' && prod.salePrice > 0 ? (
+                          <div>
+                            <span className="text-[#B8860B] font-semibold">{formatPKR(prod.salePrice)}</span>
+                            <span className="block text-[10px] text-stone-400 line-through">
+                              {formatPKR(prod.price)}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] bg-red-50 text-red-700 border border-red-200 font-medium">
-                            Sold Out
-                          </span>
+                          <div>
+                            <span>{formatPKR(prod.price)}</span>
+                            {prod.compareAtPrice && prod.compareAtPrice > prod.price && (
+                              <span className="block text-[10px] text-stone-400 line-through">
+                                {formatPKR(prod.compareAtPrice)}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
+
+                      {/* NEW ARRIVAL ON / OFF TOGGLE */}
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleNewArrival(prod)}
+                          title={prod.isNew ? `Mark "${prod.name}" as NOT New` : `Mark "${prod.name}" as New Arrival`}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border transition-all cursor-pointer shadow-2xs ${
+                            prod.isNew
+                              ? 'bg-black text-white border-black hover:bg-stone-800'
+                              : 'bg-stone-100 text-stone-500 border-stone-300 hover:border-stone-400 hover:text-black'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${prod.isNew ? 'bg-emerald-400' : 'bg-stone-400'}`} />
+                          <span>{prod.isNew ? 'NEW: ON' : 'OFF'}</span>
+                        </button>
+                      </td>
+
+                      {/* ON SALE ON / OFF TOGGLE */}
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleOnSale(prod)}
+                          title={prod.isSale ? `Turn Sale OFF for "${prod.name}"` : `Turn Sale ON for "${prod.name}"`}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border transition-all cursor-pointer shadow-2xs ${
+                            prod.isSale
+                              ? 'bg-[#B8860B] text-white border-[#B8860B] hover:bg-amber-700'
+                              : 'bg-stone-100 text-stone-500 border-stone-300 hover:border-stone-400 hover:text-black'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${prod.isSale ? 'bg-amber-200' : 'bg-stone-400'}`} />
+                          <span>{prod.isSale ? 'SALE: ON' : 'OFF'}</span>
+                        </button>
+                      </td>
+
+                      {/* SALE PRICE DIRECT CONTROL */}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-[10px] text-stone-400 font-mono">PKR</span>
+                          <input
+                            type="number"
+                            defaultValue={prod.salePrice || ''}
+                            key={`${prod.id}-${prod.salePrice}`}
+                            placeholder={prod.isSale ? String(Math.round(prod.price * 0.85)) : '-'}
+                            onBlur={(e) => {
+                              const val = e.target.value.trim();
+                              const num = val === '' ? undefined : Number(val);
+                              if (num !== prod.salePrice) {
+                                handleUpdateSalePrice(prod, num);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            className="w-20 px-1.5 py-1 text-xs border border-stone-300 font-mono text-center focus:outline-none focus:border-black bg-white"
+                          />
+                        </div>
+                      </td>
+
                       {/* BEST SELLER ON / OFF TOGGLE */}
                       <td className="py-3 px-4 text-center">
                         <button
@@ -1877,24 +1986,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                           </span>
                         )}
                       </td>
+
                       <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {prod.isNew && (
-                            <span className="px-1.5 py-0.5 bg-black text-white text-[9px] uppercase tracking-wider">
-                              New
-                            </span>
-                          )}
-                          {prod.isBestseller && (
-                            <span className="px-1.5 py-0.5 bg-[#C5A880] text-black text-[9px] uppercase tracking-wider font-medium">
-                              Bestseller
-                            </span>
-                          )}
-                          {prod.isFeatured && (
-                            <span className="px-1.5 py-0.5 bg-stone-200 text-stone-800 text-[9px] uppercase tracking-wider">
-                              Spotlight
-                            </span>
-                          )}
-                        </div>
+                        {prod.inStock ? (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                            {prod.stockCount} in stock
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] bg-red-50 text-red-700 border border-red-200 font-medium">
+                            Sold Out
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -2816,7 +2918,120 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 />
               </div>
 
-              {/* DEDICATED HOMEPAGE BEST SELLER TOGGLE */}
+              {/* DEDICATED PRODUCT STATUS CONTROLS (NEW ARRIVAL, ON SALE, BEST SELLER) */}
+              <div className="space-y-3">
+                {/* NEW ARRIVAL TOGGLE */}
+                <div className="p-4 bg-stone-100 border border-stone-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-black">
+                        New Arrival Status
+                      </span>
+                      {productForm.isNew ? (
+                        <span className="px-2 py-0.5 bg-black text-white text-[10px] uppercase tracking-wider font-bold">
+                          ✓ Marked as New Arrival
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-[10px] uppercase tracking-wider font-medium">
+                          Regular Catalog Piece
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-stone-600 font-light mt-0.5 max-w-lg">
+                      When New Arrival is <strong>ON</strong>, this piece shows the black <strong>NEW</strong> badge across the store and appears in the <strong>New Arrivals</strong> section.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setProductForm({ ...productForm, isNew: !productForm.isNew })}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+                      productForm.isNew
+                        ? 'bg-black text-white border-black shadow-xs hover:bg-stone-800'
+                        : 'bg-white text-stone-600 border-stone-300 hover:border-black hover:text-black'
+                    }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${productForm.isNew ? 'bg-emerald-400' : 'bg-stone-400'}`} />
+                    <span>New Arrival:</span>
+                    <span className={productForm.isNew ? 'text-white font-bold' : 'text-stone-700'}>
+                      {productForm.isNew ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* ON SALE TOGGLE & SALE PRICE */}
+                <div className={`p-4 border transition-all ${
+                  productForm.isSale ? 'bg-amber-50/70 border-amber-300' : 'bg-stone-100 border-stone-300'
+                } flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-black">
+                        On Sale / Special Offer Status
+                      </span>
+                      {productForm.isSale ? (
+                        <span className="px-2 py-0.5 bg-[#B8860B] text-white text-[10px] uppercase tracking-wider font-bold">
+                          ✓ On Sale Active
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-[10px] uppercase tracking-wider font-medium">
+                          Regular Price
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-stone-600 font-light mt-0.5 max-w-lg">
+                      When On Sale is <strong>ON</strong>, customers purchase this piece at the <strong>Sale Price</strong> with the original price struck through, showing the golden SALE badge.
+                    </p>
+
+                    {productForm.isSale && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-stone-700 uppercase tracking-wider mb-1">
+                            Sale Price (PKR) *
+                          </label>
+                          <input
+                            type="number"
+                            value={productForm.salePrice || ''}
+                            onChange={e => setProductForm({ ...productForm, salePrice: Number(e.target.value) })}
+                            placeholder={String(Math.round(productForm.price * 0.85))}
+                            className="bg-white border border-amber-400 p-2 text-xs font-mono font-bold text-black focus:outline-none w-36"
+                          />
+                        </div>
+                        {productForm.salePrice > 0 && productForm.salePrice < productForm.price && (
+                          <div className="text-[11px] text-amber-800 font-medium pt-4">
+                            Discount: Save {Math.round(((productForm.price - productForm.salePrice) / productForm.price) * 100)}% ({formatPKR(productForm.price - productForm.salePrice)})
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !productForm.isSale;
+                      setProductForm({
+                        ...productForm,
+                        isSale: next,
+                        salePrice: next && (!productForm.salePrice || productForm.salePrice >= productForm.price)
+                          ? Math.round(productForm.price * 0.85)
+                          : productForm.salePrice
+                      });
+                    }}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+                      productForm.isSale
+                        ? 'bg-[#B8860B] text-white border-[#B8860B] shadow-xs hover:bg-amber-700'
+                        : 'bg-white text-stone-600 border-stone-300 hover:border-black hover:text-black'
+                    }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${productForm.isSale ? 'bg-amber-200' : 'bg-stone-400'}`} />
+                    <span>On Sale:</span>
+                    <span className={productForm.isSale ? 'text-white font-bold' : 'text-stone-700'}>
+                      {productForm.isSale ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* DEDICATED HOMEPAGE BEST SELLER TOGGLE */}
               <div className="p-4 bg-stone-100 border border-stone-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -2884,6 +3099,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   />
                   <span>Show in Spotlight Showcase</span>
                 </label>
+              </div>
               </div>
 
               {/* Actions */}

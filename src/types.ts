@@ -73,6 +73,7 @@ export interface Product {
   isNew?: boolean;
   isFeatured?: boolean;
   isSale?: boolean;
+  salePrice?: number;
   isBestseller?: boolean;
   bestsellerOrder?: number;
   images: string[];

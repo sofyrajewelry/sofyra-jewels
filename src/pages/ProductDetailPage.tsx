@@ -265,6 +265,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Filter reviews for this product or general
   const productReviews = reviews.filter((r) => r.productId === product.id || !r.productId);
 
+  const isOnSale = Boolean(product.isSale) || (typeof product.salePrice === 'number' && product.salePrice > 0 && product.salePrice < product.price);
+  const displayPrice = (isOnSale && typeof product.salePrice === 'number' && product.salePrice > 0)
+    ? product.salePrice
+    : product.price;
+  const originalPrice = (isOnSale && typeof product.salePrice === 'number' && product.salePrice > 0)
+    ? product.price
+    : (product.compareAtPrice && product.compareAtPrice > product.price ? product.compareAtPrice : null);
+  const discountPct = product.discountPercent && product.discountPercent > 0
+    ? product.discountPercent
+    : (originalPrice && originalPrice > displayPrice ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100) : null);
+
   return (
     <div className="bg-white text-stone-900 pb-20">
       
@@ -398,9 +409,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     NEW
                   </span>
                 )}
-                {product.discountPercent && product.discountPercent > 0 && (
+                {isOnSale && (
                   <span className="px-3 py-1 bg-[#B8860B] text-white text-[10px] tracking-[0.2em] uppercase font-medium">
-                    SAVE {product.discountPercent}%
+                    {discountPct ? `SAVE ${discountPct}%` : 'SALE'}
                   </span>
                 )}
               </div>
@@ -444,17 +455,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
             {/* 6. PRICE DISPLAY */}
             <div className="py-2.5 border-y border-stone-200 flex items-baseline gap-4">
-              <span className="text-2xl sm:text-3xl font-medium tracking-tight text-black">
-                {formatPKR(product.price)}
+              <span className={`text-2xl sm:text-3xl font-medium tracking-tight ${isOnSale ? 'text-[#B8860B]' : 'text-black'}`}>
+                {formatPKR(displayPrice)}
               </span>
-              {product.compareAtPrice && product.compareAtPrice > product.price && (
+              {originalPrice && (
                 <span className="text-base text-stone-400 line-through tracking-normal">
-                  {formatPKR(product.compareAtPrice)}
+                  {formatPKR(originalPrice)}
                 </span>
               )}
-              {product.discountPercent && product.discountPercent > 0 && (
+              {originalPrice && originalPrice > displayPrice && (
                 <span className="px-2.5 py-0.5 text-[10px] tracking-[0.15em] uppercase font-medium bg-[#B8860B]/10 text-[#8C6B14] border border-[#B8860B]/20">
-                  Save {formatPKR(product.compareAtPrice! - product.price)}
+                  Save {formatPKR(originalPrice - displayPrice)}
                 </span>
               )}
             </div>

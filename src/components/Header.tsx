@@ -99,11 +99,11 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
             </button>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center space-x-7">
+            <nav className="hidden md:flex items-center space-x-3.5 lg:space-x-5 xl:space-x-6">
               <button
                 type="button"
                 onClick={() => handleLinkClick('home')}
-                className={`text-[12px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer ${
                   currentPage === 'home'
                     ? 'text-black font-semibold border-b border-black pb-0.5'
                     : 'text-stone-700 hover:text-black'
@@ -114,14 +114,54 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
 
               <button
                 type="button"
-                onClick={() => handleLinkClick('shop')}
-                className={`text-[12px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
+                onClick={() => handleLinkClick('shop', { category: 'all' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer ${
                   currentPage === 'shop'
                     ? 'text-black font-semibold border-b border-black pb-0.5'
                     : 'text-stone-700 hover:text-black'
                 }`}
               >
-                Shop
+                All Jewellery
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLinkClick('category', { category: 'rings' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer text-stone-700 hover:text-black`}
+              >
+                Rings
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLinkClick('category', { category: 'earrings' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer text-stone-700 hover:text-black`}
+              >
+                Earrings
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLinkClick('category', { category: 'bracelets' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer text-stone-700 hover:text-black`}
+              >
+                Bracelets
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLinkClick('category', { category: 'necklaces' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer text-stone-700 hover:text-black`}
+              >
+                Necklaces
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLinkClick('category', { category: 'bangles' })}
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer text-stone-700 hover:text-black`}
+              >
+                Bangles
               </button>
 
               {/* Categories Popover / Dropdown */}
@@ -133,13 +173,13 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => handleLinkClick('shop')}
-                  className={`text-[12px] tracking-[0.2em] uppercase flex items-center gap-1 transition-colors cursor-pointer ${
+                  className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase flex items-center gap-1 transition-colors cursor-pointer ${
                     currentPage === 'category'
                       ? 'text-black font-semibold border-b border-black pb-0.5'
                       : 'text-stone-700 hover:text-black'
                   }`}
                 >
-                  <span>Categories</span>
+                  <span>More</span>
                   <ChevronDown className="w-3 h-3 opacity-60" />
                 </button>
 
@@ -164,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
               <button
                 type="button"
                 onClick={() => handleLinkClick('shop', { filter: 'new' })}
-                className="text-[12px] tracking-[0.2em] uppercase text-stone-700 hover:text-black transition-colors cursor-pointer"
+                className="text-[11px] lg:text-[12px] tracking-[0.18em] uppercase text-stone-700 hover:text-black transition-colors cursor-pointer hidden xl:inline-block"
               >
                 New Arrivals
               </button>
@@ -172,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
               <button
                 type="button"
                 onClick={() => handleLinkClick('about')}
-                className={`text-[12px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer hidden lg:inline-block ${
                   currentPage === 'about'
                     ? 'text-black font-semibold border-b border-black pb-0.5'
                     : 'text-stone-700 hover:text-black'
@@ -184,7 +224,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
               <button
                 type="button"
                 onClick={() => handleLinkClick('contact')}
-                className={`text-[12px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
+                className={`text-[11px] lg:text-[12px] tracking-[0.18em] uppercase transition-colors cursor-pointer hidden lg:inline-block ${
                   currentPage === 'contact'
                     ? 'text-black font-semibold border-b border-black pb-0.5'
                     : 'text-stone-700 hover:text-black'
@@ -277,11 +317,48 @@ export const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleLinkClick('shop')}
+                  onClick={() => handleLinkClick('shop', { category: 'all' })}
                   className="block text-left w-full text-base tracking-[0.2em] uppercase font-light text-black"
                 >
                   All Jewellery
                 </button>
+                <div className="pl-3 space-y-3 pt-1 border-l-2 border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => handleLinkClick('category', { category: 'rings' })}
+                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
+                  >
+                    Rings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkClick('category', { category: 'earrings' })}
+                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
+                  >
+                    Earrings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkClick('category', { category: 'bracelets' })}
+                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
+                  >
+                    Bracelets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkClick('category', { category: 'necklaces' })}
+                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
+                  >
+                    Necklaces
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkClick('category', { category: 'bangles' })}
+                    className="block text-left w-full text-xs tracking-[0.2em] uppercase text-stone-700 hover:text-black"
+                  >
+                    Bangles
+                  </button>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-stone-200">

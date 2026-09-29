@@ -395,6 +395,9 @@ function readStore(): StoreData {
           colors: Array.isArray(p.colors) ? p.colors : (Array.isArray(p.colorOptions) ? p.colorOptions : []),
           colorOptions: Array.isArray(p.colorOptions) ? p.colorOptions : (Array.isArray(p.colors) ? p.colors : []),
           plating: p.plating || '',
+          isNew: p.isNew !== undefined ? Boolean(p.isNew) : false,
+          isSale: Boolean(p.isSale),
+          salePrice: typeof p.salePrice === 'number' && !isNaN(p.salePrice) ? Number(p.salePrice) : undefined,
           inStock: p.inStock !== false,
           stockCount: typeof p.stockCount === 'number' ? p.stockCount : 10,
           shippingInfo: p.shippingInfo || 'Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.',
@@ -754,6 +757,8 @@ app.post('/api/products', requireAdmin, (req, res) => {
     stockCount: typeof productData.stockCount === 'number' ? productData.stockCount : 10,
     inStock: productData.inStock !== false,
     isNew: Boolean(productData.isNew),
+    isSale: Boolean(productData.isSale),
+    salePrice: typeof productData.salePrice === 'number' && !isNaN(productData.salePrice) ? Number(productData.salePrice) : (productData.salePrice ? Number(productData.salePrice) : undefined),
     isFeatured: Boolean(productData.isFeatured),
     isBestseller: Boolean(productData.isBestseller),
     images: Array.isArray(productData.images) && productData.images.length > 0

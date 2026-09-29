@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ProductCategory } from '../types';
 import { ProductCard } from '../components/ProductCard';
 import { storageService } from '../services/storageService';
+import { isCategoryMatch } from '../utils/format';
 import { Filter, SlidersHorizontal, ArrowUpDown, Sparkles } from 'lucide-react';
 
 interface ShopPageProps {
@@ -39,10 +40,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   const filteredAndSortedProducts = useMemo(() => {
     let list = [...products];
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      const catLower = selectedCategory.toLowerCase();
-      list = list.filter(p => p.category?.toLowerCase() === catLower || p.subcategory?.toLowerCase() === catLower);
+    // Category filter: Rings shows ONLY rings, Earrings shows ONLY earrings, etc.
+    if (selectedCategory && selectedCategory !== 'all') {
+      list = list.filter(p => isCategoryMatch(p, selectedCategory));
     }
 
     // Secondary filters
@@ -50,7 +50,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
       list = list.filter(p => p.inStock);
     }
     if (onlySale) {
-      list = list.filter(p => (p.discountPercent && p.discountPercent > 0) || p.isSale);
+      list = list.filter(p => p.isSale || (p.salePrice && p.salePrice > 0 && p.salePrice < p.price) || (p.discountPercent && p.discountPercent > 0));
     }
     if (onlyNew) {
       list = list.filter(p => p.isNew);

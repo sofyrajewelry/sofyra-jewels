@@ -21,6 +21,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const primaryImage = product.images[0];
   const hoverImage = product.images[1] || product.images[0];
 
+  const isOnSale = Boolean(product.isSale) || (typeof product.salePrice === 'number' && product.salePrice > 0 && product.salePrice < product.price);
+  const displayPrice = (isOnSale && typeof product.salePrice === 'number' && product.salePrice > 0)
+    ? product.salePrice
+    : product.price;
+  const originalPrice = (isOnSale && typeof product.salePrice === 'number' && product.salePrice > 0)
+    ? product.price
+    : (product.compareAtPrice && product.compareAtPrice > product.price ? product.compareAtPrice : null);
+  const discountPct = product.discountPercent && product.discountPercent > 0
+    ? product.discountPercent
+    : (originalPrice && originalPrice > displayPrice ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100) : null);
+
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
     onNavigate('product', { slug: product.slug });
@@ -61,11 +72,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               NEW
             </span>
           )}
-          {product.discountPercent && product.discountPercent > 0 ? (
+          {isOnSale && (
             <span className="px-2 py-0.5 text-[10px] tracking-[0.15em] uppercase font-medium bg-[#B8860B] text-white">
-              -{product.discountPercent}%
+              {discountPct ? `-${discountPct}%` : 'SALE'}
             </span>
-          ) : null}
+          )}
           {!product.inStock && (
             <span className="px-2.5 py-1 text-[10px] tracking-[0.15em] uppercase font-medium bg-stone-500 text-white">
               OUT OF STOCK
@@ -152,13 +163,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <div className="mt-auto pt-1 flex items-center gap-2.5">
           <span className={`text-sm font-medium tracking-[0.05em] ${
-            darkTheme ? 'text-stone-100' : 'text-black'
+            isOnSale ? 'text-[#B8860B]' : (darkTheme ? 'text-stone-100' : 'text-black')
           }`}>
-            {formatPKR(product.price)}
+            {formatPKR(displayPrice)}
           </span>
-          {product.compareAtPrice && product.compareAtPrice > product.price && (
+          {originalPrice && (
             <span className="text-xs text-stone-400 line-through tracking-[0.05em]">
-              {formatPKR(product.compareAtPrice)}
+              {formatPKR(originalPrice)}
             </span>
           )}
         </div>

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Product, ProductCategory, HomepageContent, CategoryItem } from '../types';
 import { ProductCard } from '../components/ProductCard';
 import { storageService } from '../services/storageService';
+import { isCategoryMatch } from '../utils/format';
 
 interface CategoryPageProps {
   category: ProductCategory;
@@ -57,30 +58,15 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const heroSubtitle = activeCategory.heroSubtitle || activeCategory.tagline || '';
   const heroImage = (activeCategory.heroImage || activeCategory.image || '').trim();
 
-  // 3. Filter products matching this category (single-category model, no subcategories)
+  // 3. Filter products matching this category strictly (Rings shows ONLY rings, Earrings shows ONLY earrings, etc.)
   const categoryProducts = useMemo(() => {
     const rawCatStr = typeof category === 'string'
       ? category
       : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || 'rings');
     const targetSlug = (activeCategory.slug || '').trim().toLowerCase();
-    const targetName = (activeCategory.name || '').trim().toLowerCase();
-    const rawTarget = String(rawCatStr).trim().toLowerCase();
 
     return products.filter(p => {
-      const prodCat = (p.category || '').trim().toLowerCase();
-      const prodSub = (p.subcategory || '').trim().toLowerCase();
-
-      // Ensure exact category matching (e.g. rings) and prevent returning all products
-      if (!prodCat && !prodSub) return false;
-
-      return (
-        prodCat === targetSlug ||
-        prodCat === targetName ||
-        prodCat === rawTarget ||
-        prodSub === targetSlug ||
-        prodSub === targetName ||
-        prodSub === rawTarget
-      );
+      return isCategoryMatch(p, targetSlug) || isCategoryMatch(p, rawCatStr);
     });
   }, [products, activeCategory, category]);
 

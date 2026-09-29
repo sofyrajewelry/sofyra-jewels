@@ -90,7 +90,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             product,
             selectedVariantOptions: selectedOptions,
             quantity,
-            unitPrice: product.price,
+            unitPrice: (product.isSale && typeof product.salePrice === 'number' && product.salePrice > 0 && product.salePrice < product.price)
+              ? product.salePrice
+              : product.price,
             giftOptions: giftOptions && (giftOptions.hasPersonalNote || giftOptions.hasGiftWrap) ? giftOptions : undefined
           }
         ];
