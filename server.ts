@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { sendNewOrderEmail } from './src/services/emailService';
 import {
   INITIAL_PRODUCTS,
   DEFAULT_ADVANTAGES_SECTION,
@@ -1051,6 +1052,12 @@ app.post('/api/orders', (req, res) => {
 
   const store = readStore();
 
+  // Check if order already exists to prevent duplicates
+  const existingIdx = store.orders.findIndex((o: any) => o.id === newOrder.id);
+  if (existingIdx >= 0 && store.orders[existingIdx].emailSent) {
+    newOrder.emailSent = true;
+  }
+
   // If discountCode was applied, re-verify server-side to guarantee consistency
   if (newOrder.discountCode) {
     const discounts = store.discounts || DEFAULT_DISCOUNTS;
@@ -1076,9 +1083,34 @@ app.post('/api/orders', (req, res) => {
     }
   }
 
-  store.orders = [newOrder, ...store.orders];
+  if (existingIdx >= 0) {
+    store.orders[existingIdx] = { ...store.orders[existingIdx], ...newOrder };
+  } else {
+    store.orders = [newOrder, ...store.orders];
+  }
+
+  // 1. MUST save order successfully FIRST
   writeStore(store);
 
+  // 2. Send email notification in the background (does not block or fail customer order if email fails)
+  if (!newOrder.emailSent) {
+    sendNewOrderEmail(newOrder).then((result) => {
+      if (result.success && !result.skipped) {
+        // Mark order as emailSent and persist
+        const currentStore = readStore();
+        const oIdx = currentStore.orders.findIndex((o: any) => o.id === newOrder.id);
+        if (oIdx >= 0) {
+          currentStore.orders[oIdx].emailSent = true;
+          currentStore.orders[oIdx].emailSentAt = new Date().toISOString();
+          writeStore(currentStore);
+        }
+      }
+    }).catch((err) => {
+      console.error(`[SOFYRA Email] Failed to process email notification for order ${newOrder.id}:`, err);
+    });
+  }
+
+  // 3. Return success response to client immediately
   res.json({ success: true, order: newOrder });
 });
 
