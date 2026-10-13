@@ -731,7 +731,7 @@ app.post('/api/products', requireAdmin, (req, res) => {
     name: productData.name,
     subtitle: productData.subtitle || '',
     category: productData.category || 'jewellery',
-    subcategory: productData.subcategory || 'rings',
+    subcategory: productData.subcategory || (productData.category === 'rings' ? 'rings' : (productData.category || '')),
     price: Number(productData.price) || 1000,
     compareAtPrice: productData.compareAtPrice ? Number(productData.compareAtPrice) : undefined,
     discountPercent: productData.discountPercent ? Number(productData.discountPercent) : (
@@ -1128,6 +1128,53 @@ app.patch('/api/orders/:id', requireAdmin, (req, res) => {
   writeStore(store);
 
   res.json({ success: true, order: store.orders[index] });
+});
+
+// Soft-delete order (move to trash)
+app.delete('/api/orders/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const store = readStore();
+  const index = store.orders.findIndex((o: any) => o.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  store.orders[index].isDeleted = true;
+  store.orders[index].deletedAt = new Date().toISOString();
+  writeStore(store);
+
+  res.json({ success: true, message: 'Order moved to trash', order: store.orders[index] });
+});
+
+// Restore deleted order
+app.post('/api/orders/:id/restore', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const store = readStore();
+  const index = store.orders.findIndex((o: any) => o.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  delete store.orders[index].isDeleted;
+  delete store.orders[index].deletedAt;
+  writeStore(store);
+
+  res.json({ success: true, message: 'Order restored successfully', order: store.orders[index] });
+});
+
+// Permanently purge individual order (affects only this single order; preserves all other data)
+app.delete('/api/orders/:id/permanent', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const store = readStore();
+  const index = store.orders.findIndex((o: any) => o.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  const removed = store.orders.splice(index, 1)[0];
+  writeStore(store);
+
+  res.json({ success: true, message: 'Order permanently deleted', id: removed.id });
 });
 
 // 9. Discount Codes

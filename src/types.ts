@@ -137,6 +137,8 @@ export interface Order {
   status: OrderStatus;
   paymentStatus?: PaymentStatus;
   createdAt: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface CustomerReview {
@@ -179,6 +181,14 @@ export interface ContactInfo {
   phone?: string;
   address?: string;
   contactImage?: string;
+  supportMessage?: string;
+}
+
+export interface WhatsAppSettings {
+  enabled: boolean;
+  phoneNumber: string;
+  customLink?: string;
+  prefilledMessage: string;
 }
 
 export interface BankTransferDetails {
@@ -215,6 +225,8 @@ export interface SiteSettings {
     care: string;
   };
   bankTransferDetails?: BankTransferDetails;
+  whatsappButton?: WhatsAppSettings;
+  codEnabled?: boolean;
 }
 
 export interface Advantage {

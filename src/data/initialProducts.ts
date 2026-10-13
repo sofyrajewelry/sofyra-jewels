@@ -651,7 +651,14 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     accountTitle: '',
     iban: 'PK12HABB0053727000158003',
     instructions: 'Please transfer the order amount directly to our verified HBL account using the IBAN above. Share your payment screenshot on WhatsApp with your Order ID for instant dispatch confirmation.'
-  }
+  },
+  whatsappButton: {
+    enabled: true,
+    phoneNumber: '',
+    customLink: '',
+    prefilledMessage: "Hi! I'm interested in ordering from your store. Can you help me?"
+  },
+  codEnabled: true
 };
 
 export const DEFAULT_WORN_BY_YOU: WornByYouItem[] = [

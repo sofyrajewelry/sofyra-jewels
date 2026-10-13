@@ -506,6 +506,46 @@ export const storageService = {
     return false;
   },
 
+  deleteOrder(orderId: string): boolean {
+    this.assertAdminPermission('delete customer order');
+    const orders = this.getOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      order.isDeleted = true;
+      order.deletedAt = new Date().toISOString();
+      this.saveAllOrders(orders);
+      apiClient.deleteOrder(orderId).catch(console.error);
+      return true;
+    }
+    return false;
+  },
+
+  restoreOrder(orderId: string): boolean {
+    this.assertAdminPermission('restore customer order');
+    const orders = this.getOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      delete order.isDeleted;
+      delete order.deletedAt;
+      this.saveAllOrders(orders);
+      apiClient.restoreOrder(orderId).catch(console.error);
+      return true;
+    }
+    return false;
+  },
+
+  permanentlyDeleteOrder(orderId: string): boolean {
+    this.assertAdminPermission('permanently purge customer order');
+    const orders = this.getOrders();
+    const remaining = orders.filter(o => o.id !== orderId);
+    if (remaining.length !== orders.length) {
+      this.saveAllOrders(remaining);
+      apiClient.permanentlyDeleteOrder(orderId).catch(console.error);
+      return true;
+    }
+    return false;
+  },
+
   saveAllOrders(orders: Order[]) {
     cachedOrders = orders;
     try {
@@ -879,6 +919,7 @@ export const storageService = {
     cachedSiteSettings = settings;
     try {
       localStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(settings));
+      window.dispatchEvent(new CustomEvent('sofyra:site-settings-updated', { detail: settings }));
     } catch (e) {
       console.error(e);
     }

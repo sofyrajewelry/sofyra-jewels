@@ -26,7 +26,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const activeCategory = useMemo(() => {
     const rawCatStr = typeof category === 'string'
       ? category
-      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || 'rings');
+      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || (category as any)?.id || 'rings');
     const catSearchStr = String(rawCatStr).trim().toLowerCase();
 
     const slugMatch = allCategories.find(
@@ -62,12 +62,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const categoryProducts = useMemo(() => {
     const rawCatStr = typeof category === 'string'
       ? category
-      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || 'rings');
-    const targetSlug = (activeCategory.slug || '').trim().toLowerCase();
+      : ((category as any)?.category || (category as any)?.slug || (category as any)?.name || (category as any)?.id || 'rings');
+    const targetSlug = (activeCategory?.slug || rawCatStr || 'rings').trim().toLowerCase();
 
-    return products.filter(p => {
-      return isCategoryMatch(p, targetSlug) || isCategoryMatch(p, rawCatStr);
-    });
+    return products.filter(p => isCategoryMatch(p, targetSlug));
   }, [products, activeCategory, category]);
 
   return (

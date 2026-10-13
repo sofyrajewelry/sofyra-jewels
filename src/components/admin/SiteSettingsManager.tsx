@@ -26,8 +26,13 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
     e.preventDefault();
     setIsSaving(true);
     try {
-      await storageService.saveSiteSettings(form);
-      onSiteSettingsUpdated(form);
+      const current = storageService.getSiteSettings();
+      const merged: SiteSettings = {
+        ...form,
+        whatsappButton: current.whatsappButton || form.whatsappButton
+      };
+      await storageService.saveSiteSettings(merged);
+      onSiteSettingsUpdated(merged);
       showSuccess('Product accordions & reassurance benefits successfully updated!');
     } catch (e) {
       console.error('Failed to save site settings:', e);
@@ -142,6 +147,68 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
                 placeholder="Shop with confidence. If you're not satisfied with your purchase, you're covered by our 30-day money-back guarantee..."
                 className="w-full border border-stone-300 px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black leading-relaxed"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Checkout Payment Methods: Cash on Delivery (COD) Control */}
+        <div className="bg-white border border-stone-200 p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-black" />
+              <h3 className="text-xs tracking-[0.2em] uppercase font-semibold text-black">
+                Payment Methods & Checkout Configuration
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#FAF9F6] border border-stone-200 gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-black uppercase tracking-wider text-xs">
+                  Cash on Delivery (COD)
+                </span>
+                <span
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    form.codEnabled !== false
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-stone-200 text-stone-700 border border-stone-300'
+                  }`}
+                >
+                  {form.codEnabled !== false ? 'Active' : 'Disabled'}
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-500 font-light mt-1 max-w-xl leading-relaxed">
+                {form.codEnabled !== false
+                  ? 'Cash on Delivery is available to customers at checkout across Pakistan (Rs. 260 standard delivery fee).'
+                  : 'Cash on Delivery is disabled. Customers will only be able to checkout using Direct Bank Transfer (HBL).'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.codEnabled !== false}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    codEnabled: form.codEnabled === false ? true : false
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                  form.codEnabled !== false ? 'bg-black' : 'bg-stone-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    form.codEnabled !== false ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-black w-20">
+                {form.codEnabled !== false ? 'Enabled' : 'Disabled'}
+              </span>
             </div>
           </div>
         </div>

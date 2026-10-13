@@ -10,6 +10,7 @@ import { AdvantagesManager } from '../components/admin/AdvantagesManager';
 import { CategoriesManager } from '../components/admin/CategoriesManager';
 import { WornByYouManager } from '../components/admin/WornByYouManager';
 import { ContactInfoManager } from '../components/admin/ContactInfoManager';
+import { WhatsAppSettingsManager } from '../components/admin/WhatsAppSettingsManager';
 import { SiteSettingsManager } from '../components/admin/SiteSettingsManager';
 import { ReviewsManager } from '../components/admin/ReviewsManager';
 import {
@@ -89,6 +90,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // Tabs: Homepage & Images, Products, Categories, Worn By You, Reviews, Contact, Settings, Orders
   const [activeTab, setActiveTab] = useState<'homepage' | 'products' | 'categories' | 'wornByYou' | 'reviews' | 'contact' | 'settings' | 'orders'>('homepage');
   const [orders, setOrders] = useState<Order[]>(() => storageService.getOrders());
+  const [orderViewMode, setOrderViewMode] = useState<'active' | 'trash'>('active');
+  const [orderPendingAction, setOrderPendingAction] = useState<{
+    order: Order;
+    action: 'delete' | 'restore' | 'permanent';
+  } | null>(null);
   const [reviews, setReviews] = useState<CustomerReview[]>(() => storageService.getReviews());
   const [categories, setCategories] = useState<CategoryHierarchyItem[]>(() => storageService.getCategories());
   const [wornByYou, setWornByYou] = useState<WornByYouItem[]>(() => storageService.getWornByYou());
@@ -652,6 +658,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setOrders(storageService.getOrders());
   };
 
+  const handleExecuteOrderAction = async () => {
+    if (!orderPendingAction) return;
+    const { order, action } = orderPendingAction;
+    try {
+      if (action === 'delete') {
+        storageService.deleteOrder(order.id);
+        setOrders(storageService.getOrders());
+        setSuccessToast(`Order #${order.orderNumber || order.id} moved to Trash. You can recover it anytime from the Trash tab.`);
+      } else if (action === 'restore') {
+        storageService.restoreOrder(order.id);
+        setOrders(storageService.getOrders());
+        setSuccessToast(`Order #${order.orderNumber || order.id} restored to Active Orders.`);
+      } else if (action === 'permanent') {
+        storageService.permanentlyDeleteOrder(order.id);
+        setOrders(storageService.getOrders());
+        setSuccessToast(`Order #${order.orderNumber || order.id} permanently deleted.`);
+      }
+    } catch (err) {
+      console.error('Order action failed:', err);
+      alert('Failed to perform order action.');
+    } finally {
+      setOrderPendingAction(null);
+      setTimeout(() => setSuccessToast(null), 4000);
+    }
+  };
+
   const handleDeleteReview = (reviewId: string) => {
     if (window.confirm('Delete this customer review?')) {
       storageService.deleteReview(reviewId);
@@ -838,7 +870,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Customer Orders ({orders.length})</span>
+            <span>Customer Orders ({orders.filter(o => !o.isDeleted).length})</span>
           </button>
           <button
             type="button"
@@ -2037,150 +2069,312 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         {/* ========================================================================= */}
         {/* TAB 3: ORDERS MANAGEMENT                                                  */}
         {/* ========================================================================= */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="text-xs tracking-wider uppercase text-stone-500">
-                Customer Orders ({orders.length})
-              </span>
-            </div>
+        {activeTab === 'orders' && (() => {
+          const activeOrders = orders.filter(o => !o.isDeleted);
+          const trashOrders = orders.filter(o => Boolean(o.isDeleted));
+          const currentList = orderViewMode === 'active' ? activeOrders : trashOrders;
 
-            {orders.length === 0 ? (
-              <div className="bg-white border border-stone-200 p-12 text-center">
-                <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-stone-300" />
-                <p className="text-xs uppercase tracking-wider text-stone-500">No orders received yet</p>
-                <p className="text-[11px] text-stone-400 mt-1">Orders placed via COD will appear here with customer delivery details.</p>
+          return (
+            <div className="space-y-6">
+              {/* Top Bar with View Mode Selector */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-stone-200 gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderViewMode('active')}
+                    className={`px-4 py-2 text-xs tracking-wider uppercase font-semibold transition-all cursor-pointer ${
+                      orderViewMode === 'active'
+                        ? 'bg-black text-white'
+                        : 'bg-white text-stone-600 border border-stone-300 hover:text-black'
+                    }`}
+                  >
+                    Active Orders ({activeOrders.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrderViewMode('trash')}
+                    className={`px-4 py-2 text-xs tracking-wider uppercase font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      orderViewMode === 'trash'
+                        ? 'bg-rose-950 text-rose-100 border border-rose-800'
+                        : 'bg-white text-stone-600 border border-stone-300 hover:text-rose-600'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Deleted Orders / Trash ({trashOrders.length})</span>
+                  </button>
+                </div>
+
+                <span className="text-[11px] text-stone-400">
+                  {orderViewMode === 'active'
+                    ? 'Orders placed via COD or Bank Transfer.'
+                    : 'Recoverable trash. Restoring an order immediately returns it to active.'}
+                </span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {orders.map(order => {
-                  const customerName = order.customerName || order.shippingAddress?.fullName || 'Valued Customer';
-                  const customerPhone = order.phone || order.shippingAddress?.phone || 'No phone provided';
-                  const customerEmail = order.email || order.shippingAddress?.email || 'No email provided';
-                  const addressParts = [
-                    order.address || order.shippingAddress?.address,
-                    order.city || order.shippingAddress?.city,
-                    order.province || order.shippingAddress?.province
-                  ].filter(Boolean);
-                  const formattedAddress = addressParts.length > 0 ? addressParts.join(', ') : 'No delivery address provided';
 
-                  return (
-                    <div key={order.id} className="bg-white border border-stone-200 p-5 shadow-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-stone-100 gap-2">
-                        <div>
-                          <span className="text-[10px] tracking-wider uppercase text-stone-400">
-                            Order {order.orderNumber ? `#${order.orderNumber}` : ''}
-                          </span>
-                          <p className="font-mono font-bold text-black">{order.orderNumber || order.id}</p>
-                          <p className="text-[10px] text-stone-400">{new Date(order.createdAt).toLocaleString()}</p>
-                        </div>
+              {currentList.length === 0 ? (
+                <div className="bg-white border border-stone-200 p-12 text-center">
+                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-stone-300" />
+                  <p className="text-xs uppercase tracking-wider text-stone-500">
+                    {orderViewMode === 'active' ? 'No active orders' : 'Trash is empty'}
+                  </p>
+                  <p className="text-[11px] text-stone-400 mt-1">
+                    {orderViewMode === 'active'
+                      ? 'New orders placed will appear here with customer delivery details.'
+                      : 'Orders moved to trash will be listed here with a one-click restore option.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {currentList.map(order => {
+                    const customerName = order.customerName || order.shippingAddress?.fullName || 'Valued Customer';
+                    const customerPhone = order.phone || order.shippingAddress?.phone || 'No phone provided';
+                    const customerEmail = order.email || order.shippingAddress?.email || 'No email provided';
+                    const addressParts = [
+                      order.address || order.shippingAddress?.address,
+                      order.city || order.shippingAddress?.city,
+                      order.province || order.shippingAddress?.province
+                    ].filter(Boolean);
+                    const formattedAddress = addressParts.length > 0 ? addressParts.join(', ') : 'No delivery address provided';
 
-                        <div className="flex items-center gap-3">
-                          <select
-                            value={order.status}
-                            onChange={e => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
-                            className="bg-stone-50 border border-stone-300 text-xs py-1.5 px-3 uppercase tracking-wider font-medium focus:border-black focus:outline-none"
-                          >
-                            <option value="Pending">Pending Confirmation</option>
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Processing">Processing & Crafting</option>
-                            <option value="Shipped">Shipped</option>
-                            <option value="Dispatched">Dispatched with TCS</option>
-                            <option value="Delivered">Delivered & Paid</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                        <div>
-                          <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">Customer & Delivery</span>
-                          <p className="font-medium text-black">{customerName}</p>
-                          <p className="text-stone-500 font-mono">{customerPhone}</p>
-                          <p className="text-stone-500">{customerEmail}</p>
-                          <p className="text-stone-600 mt-1 leading-relaxed">{formattedAddress}</p>
-                          {order.orderNotes && (
-                            <p className="text-[11px] text-stone-500 italic mt-2 bg-stone-50 p-2 border border-stone-200">
-                              Note: {order.orderNotes}
+                    return (
+                      <div
+                        key={order.id}
+                        className={`bg-white border p-5 shadow-xs transition-colors ${
+                          order.isDeleted ? 'border-rose-200 bg-rose-50/20' : 'border-stone-200'
+                        }`}
+                      >
+                        {/* Order Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-stone-100 gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] tracking-wider uppercase text-stone-400">
+                                Order {order.orderNumber ? `#${order.orderNumber}` : ''}
+                              </span>
+                              {order.isDeleted && (
+                                <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                                  In Trash
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-mono font-bold text-black">{order.orderNumber || order.id}</p>
+                            <p className="text-[10px] text-stone-400">
+                              Placed: {new Date(order.createdAt).toLocaleString()}
+                              {order.deletedAt && (
+                                <span className="ml-2 text-rose-600">
+                                  &bull; Moved to Trash: {new Date(order.deletedAt).toLocaleString()}
+                                </span>
+                              )}
                             </p>
-                          )}
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {!order.isDeleted ? (
+                              <>
+                                <select
+                                  value={order.status}
+                                  onChange={e => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
+                                  className="bg-stone-50 border border-stone-300 text-xs py-1.5 px-3 uppercase tracking-wider font-medium focus:border-black focus:outline-none"
+                                >
+                                  <option value="Pending">Pending Confirmation</option>
+                                  <option value="Confirmed">Confirmed</option>
+                                  <option value="Processing">Processing & Crafting</option>
+                                  <option value="Shipped">Shipped</option>
+                                  <option value="Dispatched">Dispatched with TCS</option>
+                                  <option value="Delivered">Delivered & Paid</option>
+                                  <option value="Cancelled">Cancelled</option>
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setOrderPendingAction({ order, action: 'delete' })}
+                                  className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                                  title="Move Order to Trash"
+                                  aria-label="Delete order"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setOrderPendingAction({ order, action: 'restore' })}
+                                  className="px-3 py-1.5 bg-black text-white hover:bg-stone-800 text-[11px] uppercase tracking-wider font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>Restore Order</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setOrderPendingAction({ order, action: 'permanent' })}
+                                  className="px-3 py-1.5 border border-rose-300 text-rose-700 hover:bg-rose-100 text-[11px] uppercase tracking-wider font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Permanently remove order"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete Permanently</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <div>
-                          <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">
-                            Items ({order.items?.length || 0})
-                          </span>
-                          <ul className="space-y-1.5">
-                            {(order.items || []).map((item, idx) => {
-                              const itemName = item.product?.name || (item as any).name || 'Jewellery Item';
-                              const itemPrice = item.unitPrice || item.product?.price || 0;
-                              const itemQty = item.quantity || 1;
-                              const isRingItem =
-                                (item.product?.category || '').toLowerCase().trim() === 'rings' ||
-                                (item.product?.category || '').toLowerCase().trim() === 'ring';
-                              return (
-                                <li key={item.id || item.product?.id || idx} className="text-stone-700">
-                                  <div className="flex justify-between">
-                                    <span>{itemName} &times; {itemQty}</span>
-                                    <span className="font-mono text-stone-500">{formatPKR(itemPrice * itemQty)}</span>
-                                  </div>
-                                  {isRingItem && (
-                                    <span className="text-[10px] text-stone-500 block">
-                                      Size: Adjustable — One Size
-                                    </span>
-                                  )}
-                                  {item.selectedVariantOptions &&
-  Object.entries(item.selectedVariantOptions)
-    .filter(([key]) => !isRingItem || !key.toLowerCase().includes('size'))
-    .map(([key, value]) => (
-      <span key={key} className="text-[10px] text-stone-500 block">
-        {key}: {value}
-      </span>
-    ))}
-                                  {item.giftOptions?.hasPersonalNote && (
-                                    <span className="text-[10px] text-stone-600 italic block">
-                                      Note: "{item.giftOptions.personalNote || 'Personal Note'}" (+Rs. 350)
-                                    </span>
-                                  )}
-                                  {item.giftOptions?.hasGiftWrap && (
-                                    <span className="text-[10px] text-stone-600 block">
-                                      Gift Wrap: Yes (+Rs. 520)
-                                    </span>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                          {order.giftNote && (
-                            <p className="text-[10px] text-stone-600 italic mt-2 bg-stone-50 p-2 border border-stone-200">
-                              Gift Note: "{order.giftNote}"
-                            </p>
-                          )}
-                        </div>
+                        {/* Order Body */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">Customer & Delivery</span>
+                            <p className="font-medium text-black">{customerName}</p>
+                            <p className="text-stone-500 font-mono">{customerPhone}</p>
+                            <p className="text-stone-500">{customerEmail}</p>
+                            <p className="text-stone-600 mt-1 leading-relaxed">{formattedAddress}</p>
+                            {order.orderNotes && (
+                              <p className="text-[11px] text-stone-500 italic mt-2 bg-stone-50 p-2 border border-stone-200">
+                                Note: {order.orderNotes}
+                              </p>
+                            )}
+                          </div>
 
-                        <div className="text-right">
-                          <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">Total Due</span>
-                          <p className="font-mono font-bold text-lg text-black">{formatPKR(order.total || 0)}</p>
-                          {order.giftCharges && order.giftCharges > 0 ? (
-                            <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
-                              Includes Gift Services (+{formatPKR(order.giftCharges)})
+                          <div>
+                            <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">
+                              Items ({order.items?.length || 0})
                             </span>
-                          ) : null}
-                          <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-1">
-                            Shipping: {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer (Rs. 99)' : 'Cash on Delivery (Rs. 260)'}
-                          </span>
-                          <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
-                            Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Direct Bank Transfer (HBL)'}
-                          </span>
+                            <ul className="space-y-1.5">
+                              {(order.items || []).map((item, idx) => {
+                                const itemName = item.product?.name || (item as any).name || 'Jewellery Item';
+                                const itemPrice = item.unitPrice || item.product?.price || 0;
+                                const itemQty = item.quantity || 1;
+                                const isRingItem =
+                                  (item.product?.category || '').toLowerCase().trim() === 'rings' ||
+                                  (item.product?.category || '').toLowerCase().trim() === 'ring';
+                                return (
+                                  <li key={item.id || item.product?.id || idx} className="text-stone-700">
+                                    <div className="flex justify-between">
+                                      <span>{itemName} &times; {itemQty}</span>
+                                      <span className="font-mono text-stone-500">{formatPKR(itemPrice * itemQty)}</span>
+                                    </div>
+                                    {isRingItem && (
+                                      <span className="text-[10px] text-stone-500 block">
+                                        Size: Adjustable — One Size
+                                      </span>
+                                    )}
+                                    {item.selectedVariantOptions &&
+                                      Object.entries(item.selectedVariantOptions)
+                                        .filter(([key]) => !isRingItem || !key.toLowerCase().includes('size'))
+                                        .map(([key, value]) => (
+                                          <span key={key} className="text-[10px] text-stone-500 block">
+                                            {key}: {value}
+                                          </span>
+                                        ))}
+                                    {item.giftOptions?.hasPersonalNote && (
+                                      <span className="text-[10px] text-stone-600 italic block">
+                                        Note: "{item.giftOptions.personalNote || 'Personal Note'}" (+Rs. 350)
+                                      </span>
+                                    )}
+                                    {item.giftOptions?.hasGiftWrap && (
+                                      <span className="text-[10px] text-stone-600 block">
+                                        Gift Wrap: Yes (+Rs. 520)
+                                      </span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            {order.giftNote && (
+                              <p className="text-[10px] text-stone-600 italic mt-2 bg-stone-50 p-2 border border-stone-200">
+                                Gift Note: "{order.giftNote}"
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] tracking-wider uppercase text-stone-400 block mb-1">Total Due</span>
+                            <p className="font-mono font-bold text-lg text-black">{formatPKR(order.total || 0)}</p>
+                            {order.giftCharges && order.giftCharges > 0 ? (
+                              <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
+                                Includes Gift Services (+{formatPKR(order.giftCharges)})
+                              </span>
+                            ) : null}
+                            <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-1">
+                              Shipping: {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer (Rs. 99)' : 'Cash on Delivery (Rs. 260)'}
+                            </span>
+                            <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
+                              Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Direct Bank Transfer (HBL)'}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Order Confirmation Action Modal */}
+              {orderPendingAction && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+                  <div className="bg-white border border-stone-300 max-w-md w-full p-6 shadow-2xl space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-stone-100">
+                      <AlertCircle className={`w-5 h-5 ${
+                        orderPendingAction.action === 'restore' ? 'text-black' : 'text-rose-600'
+                      }`} />
+                      <h4 className="font-editorial text-lg uppercase tracking-wider text-black">
+                        {orderPendingAction.action === 'delete' && 'Move Order to Trash?'}
+                        {orderPendingAction.action === 'restore' && 'Restore Order to Active?'}
+                        {orderPendingAction.action === 'permanent' && 'Permanently Delete Order?'}
+                      </h4>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+
+                    <div className="text-xs text-stone-600 space-y-2">
+                      <p>
+                        Order{' '}
+                        <strong className="text-black font-mono">
+                          #{orderPendingAction.order.orderNumber || orderPendingAction.order.id}
+                        </strong>{' '}
+                        ({orderPendingAction.order.customerName || 'Customer'})
+                      </p>
+                      {orderPendingAction.action === 'delete' && (
+                        <p className="text-stone-500">
+                          This order will be moved to the Trash section. You can restore it at any time. Customer accounts, products, and images remain untouched.
+                        </p>
+                      )}
+                      {orderPendingAction.action === 'restore' && (
+                        <p className="text-stone-500">
+                          This order will immediately return to your Active Orders list.
+                        </p>
+                      )}
+                      {orderPendingAction.action === 'permanent' && (
+                        <p className="text-rose-600 font-medium">
+                          Warning: This will permanently delete only this specific order record from storage. This action cannot be reversed.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setOrderPendingAction(null)}
+                        className="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 uppercase tracking-wider font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExecuteOrderAction}
+                        className={`px-5 py-2 text-white uppercase tracking-wider font-semibold transition-colors ${
+                          orderPendingAction.action === 'restore'
+                            ? 'bg-black hover:bg-stone-800'
+                            : 'bg-rose-700 hover:bg-rose-800'
+                        }`}
+                      >
+                        {orderPendingAction.action === 'delete' && 'Move to Trash'}
+                        {orderPendingAction.action === 'restore' && 'Restore Order'}
+                        {orderPendingAction.action === 'permanent' && 'Delete Permanently'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ========================================================================= */}
         {/* TAB 4: REVIEWS MANAGEMENT                                                 */}
@@ -2484,6 +2678,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               </div>
             </div>
 
+            {/* Site Accordions & Guarantees Manager */}
+            <SiteSettingsManager
+              siteSettings={siteSettings}
+              onSiteSettingsUpdated={(updated) => {
+                setSiteSettings(updated);
+                setSuccessToast('Site settings & product accordions saved');
+                setTimeout(() => setSuccessToast(null), 3000);
+              }}
+            />
+
             {/* Data Management & Backup */}
             <div className="bg-white border border-stone-200 p-6 sm:p-8 space-y-6">
               <h3 className="font-editorial text-2xl uppercase tracking-wider text-black">
@@ -2604,6 +2808,20 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               onContactInfoUpdated={(info) => {
                 setContactInfo(info);
                 setSuccessToast('Contact details successfully updated');
+                setTimeout(() => setSuccessToast(null), 3000);
+              }}
+            />
+
+            {/* Floating WhatsApp Button Settings (Homepage Only) */}
+            <WhatsAppSettingsManager
+              whatsappSettings={siteSettings.whatsappButton}
+              fallbackPhone={contactInfo.whatsapp || contactInfo.phone || ''}
+              onSettingsUpdated={(updatedWs) => {
+                setSiteSettings({
+                  ...siteSettings,
+                  whatsappButton: updatedWs
+                });
+                setSuccessToast('Floating WhatsApp button settings saved successfully');
                 setTimeout(() => setSuccessToast(null), 3000);
               }}
             />

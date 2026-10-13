@@ -221,10 +221,41 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     onNavigate('checkout');
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+  const handleShare = async () => {
+    const identifier = product.slug || product.id;
+    const shareUrl = `${window.location.origin}/?product=${encodeURIComponent(identifier)}`;
+
+    if (typeof navigator !== 'undefined' && navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent || '')) {
+      try {
+        await navigator.share({
+          title: `SOFYRA — ${product.name}`,
+          text: `Discover ${product.name} at SOFYRA:`,
+          url: shareUrl
+        });
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2500);
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const tempInput = document.createElement('input');
+        tempInput.value = shareUrl;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy product link:', err);
+    }
   };
 
   const toggleAccordion = (section: string) => {

@@ -237,6 +237,42 @@ export const apiClient = {
     }
   },
 
+  async deleteOrder(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async restoreOrder(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}/restore`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async permanentlyDeleteOrder(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}/permanent`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      return { success: res.ok };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
+
   // 5. Reviews
   async getReviews(): Promise<CustomerReview[] | null> {
     try {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { storageService } from '../services/storageService';
-import { Order, PaymentMethod } from '../types';
+import { Order, PaymentMethod, SiteSettings } from '../types';
 import { formatPKR } from '../utils/format';
 import {
   ShieldCheck,
@@ -13,12 +13,14 @@ import {
   Lock,
   Copy,
   Check,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 
 interface CheckoutPageProps {
   onOrderPlaced: (order: Order) => void;
   onNavigate: (page: string, data?: any) => void;
+  siteSettings?: SiteSettings;
 }
 
 const PAKISTANI_CITIES = [
@@ -48,8 +50,11 @@ const PAKISTANI_PROVINCES = [
   'Gilgit-Baltistan'
 ];
 
-export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNavigate }) => {
+export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNavigate, siteSettings: initialSettings }) => {
   const { items, subtotal, giftCharges, clearCart } = useCart();
+
+  const activeSettings = initialSettings || storageService.getSiteSettings();
+  const isCodEnabled = activeSettings?.codEnabled !== false;
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -59,8 +64,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
     city: 'Lahore',
     province: 'Punjab',
     orderNotes: '',
-    paymentMethod: 'cod' as PaymentMethod
+    paymentMethod: (isCodEnabled ? 'cod' : 'bank_transfer') as PaymentMethod
   });
+
+  // Ensure formData paymentMethod switches to bank_transfer if COD is disabled in Admin
+  React.useEffect(() => {
+    if (!isCodEnabled && formData.paymentMethod === 'cod') {
+      setFormData(prev => ({ ...prev, paymentMethod: 'bank_transfer' }));
+    }
+  }, [isCodEnabled]);
 
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<{
@@ -236,6 +248,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
 
     setTimeout(() => {
       try {
+        const effectivePaymentMethod: PaymentMethod = !isCodEnabled ? 'bank_transfer' : formData.paymentMethod;
+        const effectiveShippingFee = effectivePaymentMethod === 'bank_transfer' ? 99 : 260;
+        const effectiveTotal = Math.max(0, subtotal - discountAmount) + (giftCharges || 0) + effectiveShippingFee;
+
         const newOrder = storageService.saveOrder({
           customerName: formData.fullName,
           phone: formData.phone,
@@ -246,15 +262,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
           orderNotes: formData.orderNotes,
           items: [...items],
           subtotal,
-          shippingFee,
+          shippingFee: effectiveShippingFee,
           discountAmount: discountAmount > 0 ? discountAmount : undefined,
           discountCode: appliedDiscount?.code,
           discountPercent: appliedDiscount?.percentage,
           giftCharges: giftCharges > 0 ? giftCharges : undefined,
           giftNote: combinedGiftNotes || undefined,
           hasGiftWrap: hasAnyGiftWrap || undefined,
-          total: finalTotal,
-          paymentMethod: formData.paymentMethod
+          total: effectiveTotal,
+          paymentMethod: effectivePaymentMethod
         });
 
         clearCart();
@@ -427,36 +443,45 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
 
                 <div className="space-y-3">
                   
-                  {/* Option 1: Cash on Delivery */}
-                  <label
-                    className={`flex items-start gap-4 p-4 border cursor-pointer transition-all duration-200 ${
-                      formData.paymentMethod === 'cod'
-                        ? 'border-black bg-[#FAF9F6]'
-                        : 'border-stone-200 hover:border-stone-400 bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cod"
-                      checked={formData.paymentMethod === 'cod'}
-                      onChange={() => setFormData({ ...formData, paymentMethod: 'cod' })}
-                      className="mt-1 accent-black"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-black">
-                          Cash on Delivery
-                        </span>
-                        <span className="text-xs font-bold font-mono text-black">
-                          Rs. 260
-                        </span>
+                  {/* Option 1: Cash on Delivery (only available if enabled in Admin) */}
+                  {isCodEnabled ? (
+                    <label
+                      className={`flex items-start gap-4 p-4 border cursor-pointer transition-all duration-200 ${
+                        formData.paymentMethod === 'cod'
+                          ? 'border-black bg-[#FAF9F6]'
+                          : 'border-stone-200 hover:border-stone-400 bg-white'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="cod"
+                        checked={formData.paymentMethod === 'cod'}
+                        onChange={() => setFormData({ ...formData, paymentMethod: 'cod' })}
+                        className="mt-1 accent-black"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-black">
+                            Cash on Delivery
+                          </span>
+                          <span className="text-xs font-bold font-mono text-black">
+                            Rs. 260
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 font-light mt-1">
+                          Shipping fee: Rs. 260 &bull; Pay in cash upon delivery to your doorstep anywhere in Pakistan.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-stone-500 font-light mt-1">
-                        Shipping fee: Rs. 260 &bull; Pay in cash upon delivery to your doorstep anywhere in Pakistan.
-                      </p>
+                    </label>
+                  ) : (
+                    <div className="p-3.5 bg-stone-50 border border-stone-200 text-xs text-stone-600 flex items-center gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-stone-500 shrink-0" />
+                      <span>
+                        Cash on Delivery is currently unavailable. Please complete your order securely via Direct Bank Transfer below.
+                      </span>
                     </div>
-                  </label>
+                  )}
 
                   {/* Option 2: Bank Transfer */}
                   <div
