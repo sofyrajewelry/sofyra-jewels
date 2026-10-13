@@ -658,7 +658,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     customLink: '',
     prefilledMessage: "Hi! I'm interested in ordering from your store. Can you help me?"
   },
-  codEnabled: true
+  codEnabled: true,
+  codShippingFee: 260
 };
 
 export const DEFAULT_WORN_BY_YOU: WornByYouItem[] = [

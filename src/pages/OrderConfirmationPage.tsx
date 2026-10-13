@@ -154,9 +154,9 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
               </span>
               <span className="text-black font-medium">
                 {order.paymentMethod === 'bank_transfer' ? (
-                  <span className="text-emerald-800 font-semibold">Rs. 99 (Saved Rs. 160)</span>
+                  <span className="text-emerald-800 font-semibold">Rs. 99</span>
                 ) : (
-                  formatPKR(order.shippingFee || 260)
+                  formatPKR(typeof order.shippingFee === 'number' ? order.shippingFee : 260)
                 )}
               </span>
             </div>

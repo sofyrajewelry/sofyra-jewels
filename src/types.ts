@@ -227,6 +227,7 @@ export interface SiteSettings {
   bankTransferDetails?: BankTransferDetails;
   whatsappButton?: WhatsAppSettings;
   codEnabled?: boolean;
+  codShippingFee?: number;
 }
 
 export interface Advantage {

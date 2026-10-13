@@ -884,11 +884,18 @@ export const storageService = {
     try {
       const serverSettings = await apiClient.getSiteSettings();
       if (serverSettings) {
-        cachedSiteSettings = serverSettings;
+        const mergedSettings: SiteSettings = {
+          ...DEFAULT_SITE_SETTINGS,
+          ...serverSettings,
+          codShippingFee: typeof serverSettings.codShippingFee === 'number' && !isNaN(serverSettings.codShippingFee)
+            ? serverSettings.codShippingFee
+            : (DEFAULT_SITE_SETTINGS.codShippingFee ?? 260)
+        };
+        cachedSiteSettings = mergedSettings;
         try {
-          localStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(serverSettings));
+          localStorage.setItem(SITE_SETTINGS_KEY, JSON.stringify(mergedSettings));
         } catch {}
-        return serverSettings;
+        return mergedSettings;
       }
     } catch (e) {
       console.warn('Failed to fetch siteSettings from server', e);
@@ -905,8 +912,14 @@ export const storageService = {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed) {
-          cachedSiteSettings = parsed;
-          return parsed;
+          cachedSiteSettings = {
+            ...DEFAULT_SITE_SETTINGS,
+            ...parsed,
+            codShippingFee: typeof parsed.codShippingFee === 'number' && !isNaN(parsed.codShippingFee)
+              ? parsed.codShippingFee
+              : (DEFAULT_SITE_SETTINGS.codShippingFee ?? 260)
+          };
+          return cachedSiteSettings;
         }
       }
     } catch {}
@@ -923,7 +936,7 @@ export const storageService = {
     } catch (e) {
       console.error(e);
     }
-    apiClient.saveSiteSettings(settings).catch(console.error);
+    await apiClient.saveSiteSettings(settings);
     return settings;
   },
 

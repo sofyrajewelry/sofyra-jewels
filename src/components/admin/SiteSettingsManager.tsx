@@ -12,13 +12,19 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
   siteSettings,
   onSiteSettingsUpdated
 }) => {
-  const [form, setForm] = useState<SiteSettings>(siteSettings);
+  const [form, setForm] = useState<SiteSettings>(() => ({
+    ...siteSettings,
+    codShippingFee: siteSettings.codShippingFee !== undefined ? siteSettings.codShippingFee : 260
+  }));
   const [isSaving, setIsSaving] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [newBenefitInput, setNewBenefitInput] = useState('');
 
   React.useEffect(() => {
-    setForm(siteSettings);
+    setForm({
+      ...siteSettings,
+      codShippingFee: siteSettings.codShippingFee !== undefined ? siteSettings.codShippingFee : 260
+    });
   }, [siteSettings]);
 
   const showSuccess = (msg: string) => {
@@ -31,13 +37,18 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
     setIsSaving(true);
     try {
       const current = storageService.getSiteSettings();
-      const merged = {
+      const codFeeVal = form.codShippingFee !== undefined && !isNaN(Number(form.codShippingFee))
+        ? Math.max(0, Number(form.codShippingFee))
+        : (current.codShippingFee ?? 260);
+      const merged: SiteSettings = {
+        ...current,
         ...form,
+        codShippingFee: codFeeVal,
         whatsappButton: current.whatsappButton || form.whatsappButton
       };
       await storageService.saveSiteSettings(merged);
       onSiteSettingsUpdated(merged);
-      showSuccess('Product accordions & reassurance benefits successfully updated!');
+      showSuccess(`Site settings & COD delivery fee (Rs. ${codFeeVal}) saved successfully!`);
     } catch (e) {
       console.error('Failed to save site settings:', e);
     } finally {
@@ -166,53 +177,96 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#FAF9F6] border border-stone-200 gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-black uppercase tracking-wider text-xs">
-                  Cash on Delivery (COD)
-                </span>
-                <span
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                    form.codEnabled !== false
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : 'bg-stone-200 text-stone-700 border border-stone-300'
+          <div className="p-5 bg-[#FAF9F6] border border-stone-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-black uppercase tracking-wider text-xs">
+                    Cash on Delivery (COD)
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      form.codEnabled !== false
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-stone-200 text-stone-700 border border-stone-300'
+                    }`}
+                  >
+                    {form.codEnabled !== false ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 font-light mt-1 max-w-xl leading-relaxed">
+                  {form.codEnabled !== false
+                    ? `Cash on Delivery is available to customers at checkout across Pakistan (Rs. ${form.codShippingFee !== undefined ? form.codShippingFee : 260} delivery fee).`
+                    : 'Cash on Delivery is disabled. Customers will only be able to checkout using Direct Bank Transfer (HBL).'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.codEnabled !== false}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      codEnabled: form.codEnabled === false ? true : false
+                    })
+                  }
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                    form.codEnabled !== false ? 'bg-black' : 'bg-stone-300'
                   }`}
                 >
-                  {form.codEnabled !== false ? 'Active' : 'Disabled'}
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      form.codEnabled !== false ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-black w-20">
+                  {form.codEnabled !== false ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
-              <p className="text-[11px] text-stone-500 font-light mt-1 max-w-xl leading-relaxed">
-                {form.codEnabled !== false
-                  ? 'Cash on Delivery is available to customers at checkout across Pakistan (Rs. 260 standard delivery fee).'
-                  : 'Cash on Delivery is disabled. Customers will only be able to checkout using Direct Bank Transfer (HBL).'}
-              </p>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={form.codEnabled !== false}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    codEnabled: form.codEnabled === false ? true : false
-                  })
-                }
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  form.codEnabled !== false ? 'bg-black' : 'bg-stone-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    form.codEnabled !== false ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-black w-20">
-                {form.codEnabled !== false ? 'Enabled' : 'Disabled'}
-              </span>
+            {/* Editable COD Delivery Fee Numeric Input */}
+            <div className="pt-3 border-t border-stone-200">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-black mb-1.5">
+                COD Delivery Fee (PKR)
+              </label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 max-w-md">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-stone-500">
+                    Rs.
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.codShippingFee !== undefined ? form.codShippingFee : 260}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                      setForm({
+                        ...form,
+                        codShippingFee: isNaN(val) ? 0 : Math.max(0, val)
+                      });
+                    }}
+                    className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-stone-300 focus:border-black focus:outline-none transition-colors font-medium text-black"
+                    placeholder="e.g. 150, 250, 300"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-black text-white hover:bg-stone-800 text-[11px] tracking-wider uppercase font-semibold transition-colors disabled:opacity-50 shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSaving ? 'Saving...' : 'Save Rate'}</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-500 font-light mt-1">
+                Enter any non-negative delivery fee in PKR (e.g. 150, 250, 300). Checkout automatically applies this saved amount. Direct Bank Transfer remains fixed at Rs. 99.
+              </p>
             </div>
           </div>
         </div>

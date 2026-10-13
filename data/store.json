@@ -156,7 +156,10 @@
       "createdAt": "2025-01-15",
       "subcategory": "earrings",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-2",
@@ -212,7 +215,10 @@
       "createdAt": "2025-01-20",
       "subcategory": "bracelets",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-3",
@@ -248,7 +254,10 @@
       "createdAt": "2025-02-01",
       "subcategory": "earrings",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-4",
@@ -301,7 +310,10 @@
       "createdAt": "2025-02-05",
       "subcategory": "necklaces",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-5",
@@ -356,7 +368,10 @@
       "createdAt": "2025-02-10",
       "subcategory": "rings",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-6",
@@ -411,7 +426,10 @@
       "createdAt": "2025-02-12",
       "subcategory": "rings",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-7",
@@ -446,7 +464,10 @@
       "createdAt": "2025-02-14",
       "subcategory": "necklaces",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     },
     {
       "id": "prod-8",
@@ -481,7 +502,10 @@
       "createdAt": "2025-02-18",
       "subcategory": "bracelets",
       "shippingInfo": "Nationwide delivery across Pakistan. Estimated 4–5 business days. Cash on delivery available.",
-      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy."
+      "guaranteeInfo": "Covered by SOFYRA's 30-day money-back guarantee, subject to return policy.",
+      "colors": [],
+      "colorOptions": [],
+      "isSale": false
     }
   ],
   "categories": [
@@ -766,7 +790,15 @@
       "iban": "PK12HABB0053727000158003",
       "instructions": "Please transfer the order amount directly to our verified HBL account using the IBAN above. Share your payment screenshot on WhatsApp with your Order ID for instant dispatch confirmation."
     },
-    "currency": "PKR"
+    "whatsappButton": {
+      "enabled": true,
+      "phoneNumber": "",
+      "customLink": "",
+      "prefilledMessage": "Hi! I'm interested in ordering from your store. Can you help me?"
+    },
+    "codEnabled": true,
+    "currency": "PKR",
+    "codShippingFee": 250
   },
   "orders": [
     {
@@ -853,5 +885,14 @@
       "createdAt": "2026-09-12T16:44:37.469Z"
     }
   ],
-  "reviews": []
+  "reviews": [],
+  "discounts": [
+    {
+      "id": "disc-welcome10",
+      "code": "WELCOME10",
+      "percentage": 10,
+      "enabled": true,
+      "description": "10% off entire order"
+    }
+  ]
 }

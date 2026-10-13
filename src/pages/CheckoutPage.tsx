@@ -83,8 +83,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isValidatingDiscount, setIsValidatingDiscount] = useState(false);
 
+  const codDeliveryFee = typeof activeSettings?.codShippingFee === 'number' && !isNaN(activeSettings.codShippingFee) && activeSettings.codShippingFee >= 0
+    ? activeSettings.codShippingFee
+    : 260;
   const isBankTransfer = formData.paymentMethod === 'bank_transfer';
-  const shippingFee = isBankTransfer ? 99 : 260;
+  const shippingFee = isBankTransfer ? 99 : codDeliveryFee;
   const discountAmount = appliedDiscount
     ? Math.round((subtotal * appliedDiscount.percentage) / 100)
     : 0;
@@ -249,7 +252,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
     setTimeout(() => {
       try {
         const effectivePaymentMethod: PaymentMethod = !isCodEnabled ? 'bank_transfer' : formData.paymentMethod;
-        const effectiveShippingFee = effectivePaymentMethod === 'bank_transfer' ? 99 : 260;
+        const effectiveShippingFee = effectivePaymentMethod === 'bank_transfer' ? 99 : codDeliveryFee;
         const effectiveTotal = Math.max(0, subtotal - discountAmount) + (giftCharges || 0) + effectiveShippingFee;
 
         const newOrder = storageService.saveOrder({
@@ -466,11 +469,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                             Cash on Delivery
                           </span>
                           <span className="text-xs font-bold font-mono text-black">
-                            Rs. 260
+                            Rs. {codDeliveryFee}
                           </span>
                         </div>
                         <p className="text-[11px] text-stone-500 font-light mt-1">
-                          Shipping fee: Rs. 260 &bull; Pay in cash upon delivery to your doorstep anywhere in Pakistan.
+                          Shipping fee: Rs. {codDeliveryFee} &bull; Pay in cash upon delivery to your doorstep anywhere in Pakistan.
                         </p>
                       </div>
                     </label>
@@ -506,7 +509,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                             Bank Transfer
                           </span>
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-semibold tracking-wide">
-                            Save Rs. 160, Shipping Rs. 99
+                            {codDeliveryFee > 99 ? `Save Rs. ${codDeliveryFee - 99}, Shipping Rs. 99` : 'Shipping Rs. 99'}
                           </span>
                         </div>
                         <p className="text-[11px] text-stone-500 font-light mt-1">
@@ -519,7 +522,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                       <div className="mt-4 pt-3 border-t border-stone-200/80 bg-white p-3.5 space-y-2.5 text-xs">
                         <div className="p-3 bg-stone-50 border border-stone-200">
                           <span className="font-semibold uppercase tracking-wider text-[11px] block text-black">
-                            Save Rs. 160, Shipping Rs. 99
+                            {codDeliveryFee > 99 ? `Save Rs. ${codDeliveryFee - 99}, Shipping Rs. 99` : 'Shipping Rs. 99'}
                           </span>
                           <p className="text-[11px] text-stone-600 mt-0.5">
                             Pay via Direct Bank Transfer and enjoy discounted shipping of Rs. 99.
@@ -733,10 +736,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onOrderPlaced, onNav
                     <span className="font-medium text-black">
                       {isBankTransfer ? (
                         <span className="text-emerald-800 font-semibold">
-                          Rs. 99 <span className="text-[10px] font-normal text-stone-500">(Bank Transfer &bull; Saved Rs. 160)</span>
+                          Rs. 99 <span className="text-[10px] font-normal text-stone-500">(Bank Transfer{codDeliveryFee > 99 ? ` &bull; Saved Rs. ${codDeliveryFee - 99}` : ''})</span>
                         </span>
                       ) : (
-                        <span>Rs. 260 <span className="text-[10px] text-stone-500">(Cash on Delivery)</span></span>
+                        <span>Rs. {codDeliveryFee} <span className="text-[10px] text-stone-500">(Cash on Delivery)</span></span>
                       )}
                     </span>
                   </div>
