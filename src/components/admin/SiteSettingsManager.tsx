@@ -17,6 +17,10 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [newBenefitInput, setNewBenefitInput] = useState('');
 
+  React.useEffect(() => {
+    setForm(siteSettings);
+  }, [siteSettings]);
+
   const showSuccess = (msg: string) => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(null), 4000);
@@ -27,7 +31,7 @@ export const SiteSettingsManager: React.FC<SiteSettingsManagerProps> = ({
     setIsSaving(true);
     try {
       const current = storageService.getSiteSettings();
-      const merged: SiteSettings = {
+      const merged = {
         ...form,
         whatsappButton: current.whatsappButton || form.whatsappButton
       };

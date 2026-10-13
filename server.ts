@@ -1009,7 +1009,7 @@ app.post('/api/contact-info', requireAdmin, (req, res) => {
 // 7. Site Settings (Why Sofyra, Money Back Guarantee, Accordions, Benefits Row)
 app.get('/api/site-settings', (req, res) => {
   const store = readStore();
-  res.json(store.siteSettings);
+  res.json(store.siteSettings || {});
 });
 
 app.put('/api/site-settings', requireAdmin, (req, res) => {

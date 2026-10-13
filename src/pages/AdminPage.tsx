@@ -2294,7 +2294,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                               </span>
                             ) : null}
                             <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-1">
-                              Shipping: {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer (Rs. 99)' : 'Cash on Delivery (Rs. 260)'}
+                              Shipping: {order.paymentMethod === 'bank_transfer' ? 'Bank Transfer (Rs. 99)' : `Cash on Delivery (Rs. ${order.shippingFee ?? 260})`}
                             </span>
                             <span className="text-[10px] tracking-wider uppercase text-stone-500 block mt-0.5">
                               Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Direct Bank Transfer (HBL)'}
@@ -2981,6 +2981,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     <option value="">-- No Material Selected --</option>
                     <option value="925 Sterling Silver">925 Sterling Silver</option>
                     <option value="18K Gold-Plated">18K Gold-Plated</option>
+                    {productForm.material &&
+                      !['925 Sterling Silver', '18K Gold-Plated'].includes(productForm.material) && (
+                        <option value={productForm.material}>{productForm.material}</option>
+                    )}
                   </select>
                   <p className="text-[10px] text-stone-500 font-light mt-1">
                     Select material. If none selected, Material section is hidden on product page.

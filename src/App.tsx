@@ -45,36 +45,7 @@ const parseCurrentRoute = (): RouteState => {
   const hashSegments = rawHash.split('/').filter(Boolean);
   const searchParams = new URLSearchParams(window.location.search);
 
-  // 1. Direct query parameters for shared product URLs (?product=slug, ?slug=slug, ?id=id)
-  const productParam =
-    searchParams.get('product') ||
-    searchParams.get('p') ||
-    searchParams.get('slug') ||
-    searchParams.get('id');
-
-  if (productParam) {
-    const cleanIdent = decodeURIComponent(productParam).trim();
-    return { page: 'product', data: { slug: cleanIdent, id: cleanIdent } };
-  }
-
-  // 2. Direct query parameter for category (?category=rings, ?cat=rings)
-  const categoryParam = searchParams.get('category') || searchParams.get('cat');
-  if (categoryParam) {
-    const cleanCat = decodeURIComponent(categoryParam).trim();
-    return { page: 'category', data: { category: cleanCat, slug: cleanCat } };
-  }
-
-  // 3. Admin / Auth queries
-  const isQueryAdmin = searchParams.has('admin') || searchParams.get('page') === 'admin';
-  const isQueryAuth = searchParams.has('auth') || searchParams.get('page') === 'auth';
-  if (isQueryAdmin) {
-    return { page: adminAuthService.isAuthenticated() ? 'admin' : 'auth', data: null };
-  }
-  if (isQueryAuth) {
-    return { page: adminAuthService.isAuthenticated() ? 'admin' : 'auth', data: null };
-  }
-
-  // 4. Hash-based routing (#product/slug, #category/rings, #shop, etc.)
+  // 1. Explicit hash-based navigation takes precedence (#shop, #category/rings, #product/slug, etc.)
   if (hashSegments.length > 0) {
     const firstHash = hashSegments[0].toLowerCase();
     if (firstHash === 'product' && hashSegments[1]) {
@@ -91,9 +62,41 @@ const parseCurrentRoute = (): RouteState => {
     if (firstHash === 'auth') {
       return { page: adminAuthService.isAuthenticated() ? 'admin' : 'auth', data: null };
     }
+    if (firstHash === 'home') {
+      return { page: 'home', data: null };
+    }
     if (VALID_PAGES.includes(firstHash)) {
       return { page: firstHash, data: null };
     }
+  }
+
+  // 2. Direct query parameters for shared product URLs (?product=slug, ?slug=slug, ?id=id, ?p=slug)
+  const productParam =
+    searchParams.get('product') ||
+    searchParams.get('p') ||
+    searchParams.get('slug') ||
+    searchParams.get('id');
+
+  if (productParam) {
+    const cleanIdent = decodeURIComponent(productParam).trim();
+    return { page: 'product', data: { slug: cleanIdent, id: cleanIdent } };
+  }
+
+  // 3. Direct query parameter for category (?category=rings, ?cat=rings)
+  const categoryParam = searchParams.get('category') || searchParams.get('cat');
+  if (categoryParam) {
+    const cleanCat = decodeURIComponent(categoryParam).trim();
+    return { page: 'category', data: { category: cleanCat, slug: cleanCat } };
+  }
+
+  // 4. Admin / Auth queries
+  const isQueryAdmin = searchParams.has('admin') || searchParams.get('page') === 'admin';
+  const isQueryAuth = searchParams.has('auth') || searchParams.get('page') === 'auth';
+  if (isQueryAdmin) {
+    return { page: adminAuthService.isAuthenticated() ? 'admin' : 'auth', data: null };
+  }
+  if (isQueryAuth) {
+    return { page: adminAuthService.isAuthenticated() ? 'admin' : 'auth', data: null };
   }
 
   // 5. Pathname-based routing (/product/slug, /category/rings, /admin, etc.)
@@ -124,10 +127,10 @@ const parseCurrentRoute = (): RouteState => {
     return { page: pageParam.toLowerCase(), data: null };
   }
 
-  // 7. Session storage recovery
+  // 7. Session storage recovery (only for non-home, non-product pages)
   try {
     const saved = sessionStorage.getItem('sofyra_current_page');
-    if (saved && VALID_PAGES.includes(saved)) {
+    if (saved && VALID_PAGES.includes(saved) && saved !== 'home' && saved !== 'product') {
       if (saved === 'admin' && !adminAuthService.isAuthenticated()) {
         return { page: 'auth', data: null };
       }
@@ -311,35 +314,26 @@ export default function App() {
     setPageData(data || null);
 
     if (typeof window !== 'undefined') {
+      let targetUrl = '/';
+
       if (page === 'home') {
-        if (window.history?.replaceState) {
-          window.history.replaceState(null, '', '/');
-        }
-        window.location.hash = '';
+        targetUrl = '/';
       } else if (page === 'admin' || page === 'auth') {
-        if (window.history?.pushState) {
-          window.history.pushState(null, '', `/${page}`);
-        }
-        window.location.hash = page;
+        targetUrl = `/${page}`;
       } else if (page === 'product') {
         const identifier = typeof data === 'string' ? data : (data?.slug || data?.id || '');
-        if (identifier) {
-          if (window.history?.pushState) {
-            window.history.pushState(null, '', `/?product=${encodeURIComponent(identifier)}`);
-          }
-          window.location.hash = `product/${encodeURIComponent(identifier)}`;
-        } else {
-          window.location.hash = 'product';
-        }
+        targetUrl = identifier ? `/?product=${encodeURIComponent(identifier)}` : '/#product';
       } else if (page === 'category') {
         const catSlug = typeof data === 'string' ? data : (data?.category || data?.slug || '');
-        if (catSlug) {
-          window.location.hash = `category/${encodeURIComponent(catSlug)}`;
-        } else {
-          window.location.hash = 'category';
-        }
+        targetUrl = catSlug ? `/#category/${encodeURIComponent(catSlug)}` : '/#category';
       } else {
-        window.location.hash = page;
+        targetUrl = `/#${page}`;
+      }
+
+      if (window.history?.pushState) {
+        window.history.pushState(null, '', targetUrl);
+      } else {
+        window.location.href = targetUrl;
       }
 
       try {
@@ -412,7 +406,8 @@ export default function App() {
               ? products.find(
                   p =>
                     (p.slug || '').toLowerCase() === requestedIdentifier ||
-                    (p.id || '').toLowerCase() === requestedIdentifier
+                    (p.id || '').toLowerCase() === requestedIdentifier ||
+                    (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') === requestedIdentifier
                 )
               : null;
 

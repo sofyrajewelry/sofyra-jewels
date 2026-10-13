@@ -473,7 +473,7 @@ export default {
 
     if (url.pathname === '/api/site-settings') {
       if (request.method === 'GET') {
-        const stored = await getR2Data(env, 'site-settings.json');
+        const stored = await getR2Data<Record<string, unknown>>(env, 'site-settings.json');
         return jsonResponse(stored || DEFAULT_SITE_SETTINGS);
       }
       if (request.method === 'POST') {
